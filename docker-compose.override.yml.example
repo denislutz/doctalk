@@ -1,0 +1,39 @@
+# =============================================================================
+# Docker Compose Override - Local Development
+# Copy this to docker-compose.override.yml for local development
+# =============================================================================
+
+services:
+  api:
+    build:
+      target: development
+    volumes:
+      # Mount source code for hot-reload during development
+      - ./app:/app/app:ro
+      - ./tests:/app/tests:ro
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+    # Override command to enable hot reload
+    command: >
+      sh -c "
+        uvicorn app.main:app 
+        --host 0.0.0.0 
+        --port 8000 
+        --reload 
+        --reload-dir /app/app
+      "
+
+  frontend:
+    volumes:
+      # Mount frontend code for development
+      - ./frontend:/app/frontend:ro
+    environment:
+      - ENVIRONMENT=development
+
+  # Optional: Qdrant with dashboard enabled for debugging
+  qdrant:
+    environment:
+      - QDRANT__SERVICE__ENABLE_DASHBOARD=true

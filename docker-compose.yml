@@ -1,0 +1,138 @@
+services:
+  # Vector Database - Qdrant
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: doctalk-qdrant
+    ports:
+      - "6333:6333"  # REST API
+      - "6334:6334"  # gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - doctalk-network
+
+  # Local LLM - Ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: doctalk-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # GPU support (optional - uncomment if you have NVIDIA GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - doctalk-network
+
+  # Ollama model initializer - pulls Mistral on first startup
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: doctalk-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        echo 'Waiting for Ollama to be ready...' &&
+        sleep 5 &&
+        echo 'Pulling Mistral 7B model...' &&
+        curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"mistral:7b\"}' &&
+        echo 'Model pull initiated. This may take several minutes...'
+      "
+    networks:
+      - doctalk-network
+    profiles:
+      - init
+
+  # FastAPI Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: doctalk-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_URL=http://ollama:11434
+      - DEFAULT_LLM_PROVIDER=ollama
+      - DEFAULT_LLM_MODEL=mistral:7b
+      - EMBEDDING_MODEL=all-MiniLM-L6-v2
+      - UPLOAD_DIR=/app/uploads
+      - LOG_LEVEL=INFO
+      - API_KEY=${API_KEY:-changeme}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    env_file:
+      - .env
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - doctalk-network
+
+  # Streamlit Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: doctalk-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+      - API_KEY=${API_KEY:-changeme}
+    env_file:
+      - .env
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - doctalk-network
+
+volumes:
+  qdrant_data:
+    driver: local
+  ollama_data:
+    driver: local
+
+networks:
+  doctalk-network:
+    driver: bridge

@@ -11,17 +11,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-RUN pip install --no-cache-dir poetry==1.8.0
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 # Copy dependency files
-COPY pyproject.toml poetry.lock ./
+COPY pyproject.toml uv.lock ./
 
-# Configure Poetry
-RUN poetry config virtualenvs.create false
-
-# Install dependencies (need main + streamlit)
-RUN poetry install --no-interaction --no-ansi --only main --no-root
+# Install production dependencies only
+RUN uv sync --frozen --no-dev --no-install-project
 
 # Copy frontend code
 COPY frontend/ ./frontend/
@@ -44,4 +41,4 @@ ENV STREAMLIT_SERVER_ADDRESS=0.0.0.0
 ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
 
 # Run Streamlit
-CMD ["streamlit", "run", "frontend/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["/app/.venv/bin/streamlit", "run", "frontend/app.py", "--server.port=8501", "--server.address=0.0.0.0"]

@@ -194,7 +194,7 @@ qdrant_client.upsert(
 
 ### 6.1 Retrieval Strategy
 
-```
+```text
 User Question
   │
   ├─▶ Dense Search (embedding similarity via Qdrant)
@@ -275,7 +275,7 @@ memory = ConversationBufferWindowMemory(
 
 ## 7. API Endpoints
 
-```
+```text
 POST   /collections                    Create topic collection
 GET    /collections                    List all collections
 GET    /collections/{topic}            Collection stats & doc list
@@ -299,11 +299,11 @@ API key header: `X-API-Key: <key>` — configured via environment variable. Enou
 
 ## 8. Project Structure
 
-```
+```text
 doctalk/
 ├── docker-compose.yml          # Qdrant + Ollama + App
 ├── Dockerfile
-├── pyproject.toml              # Poetry/pip dependencies
+├── pyproject.toml              # uv dependencies (PEP 621)
 ├── .env.example
 ├── README.md
 │
@@ -369,44 +369,48 @@ doctalk/
 ## 9. Dependencies
 
 ```toml
-[tool.poetry.dependencies]
-python = "^3.11"
+[project]
+requires-python = ">=3.11"
 
-# API
-fastapi = "^0.115"
-uvicorn = {extras = ["standard"], version = "^0.30"}
-pydantic = "^2.7"
-pydantic-settings = "^2.3"
-python-multipart = "^0.0.9"
+dependencies = [
+    # API
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "python-multipart>=0.0.9",
 
-# Document Processing
-python-docx = "^1.1"
-PyMuPDF = "^1.24"
-markdown = "^3.6"
-pandas = "^2.2"
+    # Document Processing
+    "python-docx>=1.1",
+    "PyMuPDF>=1.24",
+    "markdown>=3.6",
+    "pandas>=2.2",
 
-# RAG / AI
-langchain = "^0.2"
-langchain-community = "^0.2"
-qdrant-client = "^1.9"
-sentence-transformers = "^3.0"
+    # RAG / AI
+    "langchain>=0.2",
+    "langchain-community>=0.2",
+    "qdrant-client>=1.9",
+    "sentence-transformers>=3.0",
 
-# LLM Clients
-ollama = "^0.3"
-anthropic = "^0.30"
+    # LLM Clients
+    "ollama>=0.3",
+    "anthropic>=0.30",
 
-# Evaluation
-ragas = "^0.1"
-deepeval = "^0.21"
+    # Evaluation
+    "ragas>=0.1",
+    "deepeval>=0.21",
 
-# Utilities
-tiktoken = "^0.7"         # Token counting for chunk sizing
-httpx = "^0.27"           # Async HTTP client
+    # Utilities
+    "tiktoken>=0.7",   # Token counting for chunk sizing
+    "httpx>=0.27",     # Async HTTP client
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.2"
-pytest-asyncio = "^0.23"
-ruff = "^0.5"
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+]
 ```
 
 ---
@@ -459,7 +463,7 @@ volumes:
 
 | Task                                                     | Time | Output                                     |
 | -------------------------------------------------------- | ---- | ------------------------------------------ |
-| Project setup (Poetry, FastAPI skeleton, Docker Compose) | 3h   | Running `/health` endpoint                 |
+| Project setup (uv, FastAPI skeleton, Docker Compose)     | 3h   | Running `/health` endpoint                 |
 | Qdrant client wrapper (create/list/delete collections)   | 3h   | Collection CRUD working                    |
 | PDF loader + tests (PyMuPDF)                             | 3h   | PDF → chunks with page metadata            |
 | DOCX loader + tests (python-docx)                        | 3h   | DOCX → chunks with heading metadata        |

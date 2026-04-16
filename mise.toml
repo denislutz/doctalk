@@ -1,6 +1,6 @@
 [tools]
 python = "3.11"
-poetry = "latest"
+uv = "latest"
 docker-compose = "latest"
 
 [env]
@@ -42,29 +42,21 @@ USE_RERANKING = "true"
 [tasks.setup]
 description = "Initial project setup - install deps and create dirs"
 run = """
-if [ ! -f poetry.lock ]; then
-  echo "No lock file found, running poetry lock..."
-  poetry lock
-fi
-poetry install
+uv sync
 mkdir -p uploads sample_data
 """
 
 [tasks.install]
 description = "Install all dependencies from lock file"
-run = "poetry install"
+run = "uv sync"
 
 [tasks.update]
 description = "Update dependencies and regenerate lock file"
-run = "poetry update"
+run = "uv lock --upgrade && uv sync"
 
 [tasks.lock]
-description = "Regenerate poetry.lock without installing"
-run = "poetry lock"
-
-[tasks.sync]
-description = "Sync environment with lock file exactly"
-run = "poetry sync"
+description = "Regenerate uv.lock without installing"
+run = "uv lock"
 
 # =============================================================================
 # DEPENDENCY MANAGEMENT
@@ -72,27 +64,23 @@ run = "poetry sync"
 
 [tasks.add]
 description = "Add a new dependency (usage: mise run add -- <pkg>)"
-run = "poetry add {{arg(name='pkg')}}"
+run = "uv add {{arg(name='pkg')}}"
 
 [tasks.add-dev]
 description = "Add a dev dependency (usage: mise run add-dev -- <pkg>)"
-run = "poetry add --group dev {{arg(name='pkg')}}"
+run = "uv add --dev {{arg(name='pkg')}}"
 
 [tasks.remove]
 description = "Remove a dependency (usage: mise run remove -- <pkg>)"
-run = "poetry remove {{arg(name='pkg')}}"
+run = "uv remove {{arg(name='pkg')}}"
 
 [tasks.show]
 description = "Show installed packages"
-run = "poetry show"
-
-[tasks.lock-file]
-description = "Update the lock file"
-run = "poetry lock"
+run = "uv pip list"
 
 [tasks.show-tree]
 description = "Show dependency tree"
-run = "poetry show --tree"
+run = "uv tree"
 
 # =============================================================================
 # DOCKER & INFRASTRUCTURE
@@ -257,18 +245,15 @@ echo -n "Ollama:   " && curl -s http://localhost:11434/api/tags 2>/dev/null > /d
 
 [tasks.api]
 description = "Start FastAPI dev server with hot reload"
-run = "poetry run uvicorn app.main:app --reload --host $API_HOST --port $API_PORT"
-depends = ["install"]
+run = "uv run uvicorn app.main:app --reload --host $API_HOST --port $API_PORT"
 
 [tasks.api-prod]
 description = "Start FastAPI production server"
-run = "poetry run uvicorn app.main:app --host $API_HOST --port $API_PORT --workers 4"
-depends = ["install"]
+run = "uv run uvicorn app.main:app --host $API_HOST --port $API_PORT --workers 4"
 
 [tasks.frontend]
 description = "Start Streamlit frontend"
-run = "poetry run streamlit run frontend/app.py"
-depends = ["install"]
+run = "uv run streamlit run frontend/app.py"
 
 [tasks.all]
 description = "Start all services (infra + api + frontend)"
@@ -280,28 +265,23 @@ depends = ["dev", "api"]
 
 [tasks.test]
 description = "Run all tests"
-run = "poetry run pytest tests/ -v"
-depends = ["install"]
+run = "uv run pytest tests/ -v"
 
 [tasks.test-cov]
 description = "Run tests with coverage report"
-run = "poetry run pytest tests/ -v --cov=app --cov-report=html --cov-report=term"
-depends = ["install"]
+run = "uv run pytest tests/ -v --cov=app --cov-report=html --cov-report=term"
 
 [tasks.test-unit]
 description = "Run unit tests only"
-run = "poetry run pytest tests/ -v -m unit"
-depends = ["install"]
+run = "uv run pytest tests/ -v -m unit"
 
 [tasks.test-integration]
 description = "Run integration tests only"
-run = "poetry run pytest tests/ -v -m integration"
-depends = ["install"]
+run = "uv run pytest tests/ -v -m integration"
 
 [tasks.test-watch]
 description = "Run tests in watch mode"
-run = "poetry run pytest tests/ -f"
-depends = ["install"]
+run = "uv run pytest tests/ -f"
 
 # =============================================================================
 # LINTING & FORMATTING
@@ -309,23 +289,19 @@ depends = ["install"]
 
 [tasks.lint]
 description = "Run ruff linter"
-run = "poetry run ruff check ."
-depends = ["install"]
+run = "uv run ruff check ."
 
 [tasks.lint-fix]
 description = "Run ruff linter with auto-fix"
-run = "poetry run ruff check . --fix"
-depends = ["install"]
+run = "uv run ruff check . --fix"
 
 [tasks.format]
 description = "Run ruff formatter"
-run = "poetry run ruff format ."
-depends = ["install"]
+run = "uv run ruff format ."
 
 [tasks.typecheck]
 description = "Run mypy type checking"
-run = "poetry run mypy app/"
-depends = ["install"]
+run = "uv run mypy app/"
 
 [tasks.quality]
 description = "Run full quality check (lint + format + typecheck + test)"
@@ -337,13 +313,11 @@ depends = ["format", "lint", "typecheck", "test"]
 
 [tasks.seed]
 description = "Seed sample data into collections"
-run = "poetry run python scripts/seed_demo.py"
-depends = ["install"]
+run = "uv run python scripts/seed_demo.py"
 
 [tasks.benchmark]
 description = "Run performance benchmarks"
-run = "poetry run python scripts/benchmark.py"
-depends = ["install"]
+run = "uv run python scripts/benchmark.py"
 
 [tasks.clean-uploads]
 description = "Clean uploads directory"
@@ -364,13 +338,11 @@ echo "Collections reset"
 
 [tasks.eval]
 description = "Run RAGAS evaluation"
-run = "poetry run python eval/run_ragas.py"
-depends = ["install"]
+run = "uv run python eval/run_ragas.py"
 
 [tasks.eval-deep]
 description = "Run DeepEval evaluation"
-run = "poetry run python eval/run_deepeval.py"
-depends = ["install"]
+run = "uv run python eval/run_deepeval.py"
 
 [tasks.eval-all]
 description = "Run all evaluations"
@@ -380,14 +352,10 @@ depends = ["eval", "eval-deep"]
 # SHELL & DEBUG
 # =============================================================================
 
-[tasks.shell]
-description = "Enter poetry shell (interactive venv)"
-run = "poetry shell"
-
 [tasks.py]
 description = "Run Python in project environment (usage: mise run py -- -c \"print(1)\")"
-run = "poetry run python {{arg(name='args', var=true, default='')}}"
+run = "uv run python {{arg(name='args', var=true, default='')}}"
 
 [tasks.run]
-description = "Run arbitrary poetry command (usage: mise run run -- <cmd>)"
-run = "poetry run {{arg(name='cmd', var=true)}}"
+description = "Run arbitrary command in uv env (usage: mise run run -- <cmd>)"
+run = "uv run {{arg(name='cmd', var=true)}}"

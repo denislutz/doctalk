@@ -82,7 +82,7 @@ def _to_source_chunks(hits: list[tuple[dict[str, Any], float]]) -> list[SourceCh
             format=payload.get("format", "pdf"),
             page_number=payload.get("page"),
             section_header=payload.get("section_header"),
-            content_snippet=payload["content"][:200],
+            content_snippet=payload["content"][:500],
             relevance_score=score,
         )
         source_chunks.append(ch)

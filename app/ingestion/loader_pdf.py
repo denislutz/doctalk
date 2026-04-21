@@ -9,7 +9,7 @@ class DocumentChunk:
     metadata: dict[str, object]
 
 
-def load_pdf(path: str) -> list[DocumentChunk]:
+def load_pdf(path: str, source_name: str = "") -> list[DocumentChunk]:
     chunks = []
     with fitz.open(path) as doc:
         total_pages = len(doc)
@@ -23,6 +23,7 @@ def load_pdf(path: str) -> list[DocumentChunk]:
                     metadata={
                         "filename": path,
                         "total_pages": total_pages,
+                        "source_name": path,
                         "page": page.number + 1,
                         "format": "pdf",
                     },

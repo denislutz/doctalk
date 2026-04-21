@@ -45,6 +45,7 @@ with upload_tab:
     new_topic = st.text_input(
         f"Name your new topic for the files to be associated with, or leave blank to use the current topic '{selected}'."
     )
+    original_source_name = st.text_input("Original source name (optional)", value="")
     topic = new_topic.strip() if new_topic.strip() else selected
 
     if st.button("Upload", disabled=uploaded_file is None or not topic):
@@ -52,6 +53,7 @@ with upload_tab:
         response = http_client.post(
             f"{API_URL}/upload/{topic}",
             files={"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")},
+            data={"original_source_name": original_source_name},
         )
         if response.status_code == 200:
             st.success(

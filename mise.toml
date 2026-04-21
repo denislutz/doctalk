@@ -27,18 +27,28 @@ RERANK_TOP_K = "10"
 USE_RERANKING = "true"
 
 [tasks.setup]
-description = "Initial project setup - install deps and create dirs"
+description = "Initial project setup - install deps, start infra, pull LLM model"
 run = """
 uv sync
-mkdir -p uploads sample_data
+mkdir -p uploads sample_data logs
+docker compose up -d qdrant ollama
+docker compose --profile init up ollama-init
 """
 
 [tasks.dev]
-description = "Start Qdrant in Docker (run 'mise run ollama' separately)"
+description = "Start Qdrant + Ollama in Docker"
+run = "docker compose up -d qdrant ollama"
+
+[tasks.pull-model]
+description = "Pull the LLM model into the Ollama container"
+run = "docker compose --profile init up ollama-init"
+
+[tasks.qdrant]
+description = "Start Qdrant in Docker only"
 run = "docker compose up -d qdrant"
 
 [tasks.ollama]
-description = "Start local Ollama server"
+description = "Start locally installed Ollama server"
 run = "ollama serve"
 
 [tasks.api]
@@ -51,7 +61,7 @@ run = "uv run streamlit run frontend/app.py"
 
 [tasks.all]
 description = "Start all services (infra + ollama + api + frontend)"
-depends = ["dev", "ollama", "api"]
+depends = ["dev", "api", "frontend"]
 
 [tasks.test]
 description = "Run all tests"

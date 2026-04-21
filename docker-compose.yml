@@ -54,13 +54,15 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
     entrypoint: >
       sh -c "
         echo 'Waiting for Ollama to be ready...' &&
         sleep 5 &&
-        echo 'Pulling Mistral 7B model...' &&
-        curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"mistral:7b\"}' &&
-        echo 'Model pull initiated. This may take several minutes...'
+        echo 'Pulling llama3.2:3b model...' &&
+        ollama pull llama3.2:3b &&
+        echo 'Model pull complete.'
       "
     networks:
       - doctalk-network
@@ -81,7 +83,7 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_URL=http://ollama:11434
       - DEFAULT_LLM_PROVIDER=ollama
-      - DEFAULT_LLM_MODEL=mistral:7b
+      - DEFAULT_LLM_MODEL=llama3.2:3b
       - EMBEDDING_MODEL=all-MiniLM-L6-v2
       - UPLOAD_DIR=/app/uploads
       - LOG_LEVEL=INFO

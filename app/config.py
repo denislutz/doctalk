@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     ollama_url: str = "http://localhost:11434"
     default_llm_provider: str = "ollama"
-    default_llm_model: str = "mistral:7b"
+    default_llm_model: str = "llama3.2:3b"
 
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-3-haiku-20240307"

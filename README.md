@@ -32,20 +32,33 @@ mise run api
 mise run frontend
 ```
 
-- API: http://localhost:8000
-- API docs: http://localhost:8000/docs
-- Frontend: http://localhost:8501
+- API: <http://localhost:8000>
+- API docs: <http://localhost:8000/docs>
+- Frontend: <http://localhost:8501>
 
 ## Environment Variables
 
 Copy `.env.example` to `.env` and configure:
 
-| Variable | Default | Description |
-|---|---|---|
-| `API_KEY` | `changeme` | Header auth key (`X-API-Key`) |
-| `ANTHROPIC_API_KEY` | — | Optional Claude API fallback |
-| `OLLAMA_MODEL` | `mistral:7b` | Local LLM model |
-| `QDRANT_HOST` | `localhost` | Qdrant host |
+| Variable            | Default      | Description                   |
+| ------------------- | ------------ | ----------------------------- |
+| `API_KEY`           | `changeme`   | Header auth key (`X-API-Key`) |
+| `ANTHROPIC_API_KEY` | —            | Optional Claude API fallback  |
+| `OLLAMA_MODEL`      | `mistral:7b` | Local LLM model               |
+| `QDRANT_HOST`       | `localhost`  | Qdrant host                   |
+
+## VS Code Extensions
+
+Install these for the best Python experience:
+
+| Extension         | ID                            | Purpose                                     |
+| ----------------- | ----------------------------- | ------------------------------------------- |
+| Python            | `ms-python.python`            | Core Python support                         |
+| Pylance           | `ms-python.vscode-pylance`    | Fast IntelliSense (Pyright)                 |
+| Mypy Type Checker | `ms-python.mypy-type-checker` | Matches `mise run typecheck` exactly        |
+| Ruff              | `charliermarsh.ruff`          | Matches `mise run lint` + `mise run format` |
+
+> Note: Pylance uses Pyright under the hood, which can diverge from mypy. Install the Mypy extension and set `"python.typeCheckingMode": "off"` in `.vscode/settings.json` to see the same errors as `mise run check`.
 
 ## Development
 
@@ -102,12 +115,12 @@ doctalk/
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| API | FastAPI + Pydantic |
-| Vector DB | Qdrant |
+| Layer      | Technology                                     |
+| ---------- | ---------------------------------------------- |
+| API        | FastAPI + Pydantic                             |
+| Vector DB  | Qdrant                                         |
 | Embeddings | sentence-transformers/all-MiniLM-L6-v2 (local) |
-| RAG | LangChain |
-| LLM | Ollama (Mistral 7B) — Claude API optional |
-| Frontend | Streamlit |
-| Evaluation | RAGAS + DeepEval |
+| RAG        | LangChain                                      |
+| LLM        | Ollama (Mistral 7B) — Claude API optional      |
+| Frontend   | Streamlit                                      |
+| Evaluation | RAGAS + DeepEval                               |

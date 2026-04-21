@@ -1,23 +1,119 @@
-from fastapi import APIRouter
-from pydantic import BaseModel
+import time
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Request
+
+from app.ingestion.embedder import Embedder
+from app.llm.ollama_client import OllamaClient
+from app.models.requests import QueryRequest
+from app.models.responses import QueryResponse, SourceChunk
+from app.storage.vector_db_client import VectorDB
 
 router = APIRouter(prefix="/query", tags=["query"])
 
 
-class QueryRequest(BaseModel):
-    question: str
-    topics: list[str] | None = None
-    top_k: int = 5
-    use_reranking: bool = True
+SYSTEM_PROMPT = """
+You are a helpful assistant that answers questions based on the provided context.
+You must always cite your sources using the format [Source: filename, page number].
+If you cannot find an answer in the context, say "I couldn't find this information in the provided documents."
+"""
+USER_PROMPT = """
+Context:
+{formatted_chunks}
+
+Question:
+{user_question}
+"""
+
+MINIMAL_SCORE = 0.3
+
+
+def _validate_topics(topics: list[str] | None) -> str:
+    if not topics or not topics[0].strip() or len(topics) > 1:
+        raise HTTPException(status_code=400, detail="Topic is invalid.")
+
+    return topics[0]
+
+
+def _embed_question(request: Request, question: str) -> list[float]:
+    embedder: Embedder = request.app.state.embedder
+    embeddings = embedder.embed([question])
+    return embeddings[0]
+
+
+def _retrieve(
+    *, request: Request, topic: str, question_embeddings: list[float], top_k: int
+) -> list[tuple[dict[str, Any], float]]:
+    vector_db: VectorDB = request.app.state.vector_db_client
+    if not vector_db.is_present_collection(topic):
+        raise Exception(f"Collection {topic} not found")
+    return vector_db.search(collection=topic, vector=question_embeddings, top_k=top_k)
+
+
+def _build_prompt(question: str, hits: list[tuple[dict[str, Any], float]]) -> str:
+    formatted_chunks = ""
+
+    for hit in hits:
+        payload, score = hit
+        if score < MINIMAL_SCORE:
+            continue
+        filename = payload.get("filename", "Unknown")
+        page = payload.get("page", "")
+        content = payload.get("content", "")
+        chunk = f"Source: {filename}, page: {page}\n{content}\n\n"
+        formatted_chunks += chunk
+    return (
+        SYSTEM_PROMPT
+        + "\n\n"
+        + USER_PROMPT.format(formatted_chunks=formatted_chunks, user_question=question)
+    )
+
+
+async def _generate(request: Request, prompt: str) -> str:
+    chat_model: OllamaClient = request.app.state.chat_model
+    return await chat_model.generate(prompt)
+
+
+def _to_source_chunks(hits: list[tuple[dict[str, Any], float]]) -> list[SourceChunk]:
+    source_chunks = []
+    for payload, score in hits:
+        ch = SourceChunk(
+            filename=payload["filename"],
+            format=payload.get("format", "pdf"),
+            page_number=payload.get("page"),
+            section_header=payload.get("section_header"),
+            content_snippet=payload["content"][:200],
+            relevance_score=score,
+        )
+        source_chunks.append(ch)
+    return source_chunks
 
 
 @router.post("")
-async def query(request: QueryRequest):
-    # TODO: implement RAG pipeline
-    return {
-        "answer": "Not implemented yet.",
-        "sources": [],
-        "tokens_used": 0,
-        "retrieval_time_ms": 0.0,
-        "generation_time_ms": 0.0,
-    }
+async def query(request: Request, body: QueryRequest) -> QueryResponse:
+    topics, question, top_k = body.topics, body.question, body.top_k
+    topic = _validate_topics(topics)
+
+    t0 = time.perf_counter()
+    question_embeddings = _embed_question(request, question)
+    context_enrichment = _retrieve(
+        request=request,
+        topic=topic,
+        question_embeddings=question_embeddings,
+        top_k=top_k,
+    )
+    retrieval_ms = (time.perf_counter() - t0) * 1000
+
+    prompt = _build_prompt(question, context_enrichment)
+
+    t1 = time.perf_counter()
+    answer = await _generate(request, prompt)
+    generation_ms = (time.perf_counter() - t1) * 1000
+
+    return QueryResponse(
+        answer=answer,
+        sources=_to_source_chunks(context_enrichment),
+        tokens_used=0,
+        retrieval_time_ms=retrieval_ms,
+        generation_time_ms=generation_ms,
+    )

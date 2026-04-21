@@ -7,37 +7,24 @@ docker-compose = "latest"
 _.python.venv = { path = ".venv", create = true }
 PYTHONPATH = "{{config_root}}/app"
 
-# API Configuration
 API_HOST = "0.0.0.0"
 API_PORT = "8000"
 
-# Qdrant Configuration
 QDRANT_HOST = "localhost"
 QDRANT_PORT = "6333"
 QDRANT_COLLECTION_PREFIX = "doctalk"
 
-# Ollama Configuration
-OLLAMA_HOST = "http://localhost"
-OLLAMA_PORT = "11434"
-OLLAMA_MODEL = "mistral:7b"
+OLLAMA_HOST = "127.0.0.1:11434"
+OLLAMA_MODEL = "llama3.2:3b"
 
-# Optional: Claude API (for fallback)
-# ANTHROPIC_API_KEY = ""
-
-# Chunking Configuration
 CHUNK_MAX_SIZE = "512"
 CHUNK_OVERLAP = "50"
 CHUNK_MIN_SIZE = "50"
 CSV_ROWS_PER_CHUNK = "25"
 
-# Retrieval Configuration
 TOP_K = "5"
 RERANK_TOP_K = "10"
 USE_RERANKING = "true"
-
-# =============================================================================
-# SETUP & INSTALLATION
-# =============================================================================
 
 [tasks.setup]
 description = "Initial project setup - install deps and create dirs"
@@ -46,316 +33,42 @@ uv sync
 mkdir -p uploads sample_data
 """
 
-[tasks.install]
-description = "Install all dependencies from lock file"
-run = "uv sync"
-
-[tasks.update]
-description = "Update dependencies and regenerate lock file"
-run = "uv lock --upgrade && uv sync"
-
-[tasks.lock]
-description = "Regenerate uv.lock without installing"
-run = "uv lock"
-
-# =============================================================================
-# DEPENDENCY MANAGEMENT
-# =============================================================================
-
-[tasks.add]
-description = "Add a new dependency (usage: mise run add -- <pkg>)"
-run = "uv add {{arg(name='pkg')}}"
-
-[tasks.add-dev]
-description = "Add a dev dependency (usage: mise run add-dev -- <pkg>)"
-run = "uv add --dev {{arg(name='pkg')}}"
-
-[tasks.remove]
-description = "Remove a dependency (usage: mise run remove -- <pkg>)"
-run = "uv remove {{arg(name='pkg')}}"
-
-[tasks.show]
-description = "Show installed packages"
-run = "uv pip list"
-
-[tasks.show-tree]
-description = "Show dependency tree"
-run = "uv tree"
-
-# =============================================================================
-# DOCKER & INFRASTRUCTURE
-# =============================================================================
-
-# Infrastructure only (Qdrant + Ollama) - for local dev
 [tasks.dev]
-description = "Start infrastructure services (Qdrant + Ollama)"
-run = "docker compose up -d qdrant ollama"
+description = "Start Qdrant in Docker (run 'mise run ollama' separately)"
+run = "docker compose up -d qdrant"
 
-[tasks.dev-stop]
-description = "Stop infrastructure services"
-run = "docker compose down"
-
-[tasks.dev-logs]
-description = "Follow logs for infrastructure services"
-run = "docker compose logs -f qdrant ollama"
-
-[tasks.dev-clean]
-description = "Stop and remove infrastructure containers + volumes"
-run = "docker compose down -v"
-
-# Full Docker stack
-[tasks.docker-up]
-description = "Start full Docker stack (build + up)"
-run = "docker compose up --build -d"
-
-[tasks.docker-down]
-description = "Stop full Docker stack"
-run = "docker compose down"
-
-[tasks.docker-logs]
-description = "Follow logs for all services"
-run = "docker compose logs -f"
-
-[tasks.docker-logs-api]
-description = "Follow API logs only"
-run = "docker compose logs -f api"
-
-[tasks.docker-logs-frontend]
-description = "Follow frontend logs only"
-run = "docker compose logs -f frontend"
-
-[tasks.docker-logs-ollama]
-description = "Follow Ollama logs only"
-run = "docker compose logs -f ollama"
-
-[tasks.docker-logs-qdrant]
-description = "Follow Qdrant logs only"
-run = "docker compose logs -f qdrant"
-
-[tasks.docker-clean]
-description = "Stop all containers, remove volumes and orphans"
-run = "docker compose down -v --remove-orphans"
-
-[tasks.docker-build]
-description = "Build all images without starting"
-run = "docker compose build"
-
-[tasks.docker-build-api]
-description = "Build API image only"
-run = "docker compose build api"
-
-[tasks.docker-build-frontend]
-description = "Build frontend image only"
-run = "docker compose build frontend"
-
-[tasks.docker-restart]
-description = "Restart all services"
-run = "docker compose restart"
-
-[tasks.docker-restart-api]
-description = "Restart API service only"
-run = "docker compose restart api"
-
-[tasks.docker-restart-frontend]
-description = "Restart frontend service only"
-run = "docker compose restart frontend"
-
-[tasks.docker-ps]
-description = "Show running containers"
-run = "docker compose ps"
-
-[tasks.docker-exec-api]
-description = "Execute shell in API container"
-run = "docker compose exec api bash"
-
-[tasks.docker-exec-ollama]
-description = "Execute shell in Ollama container"
-run = "docker compose exec ollama sh"
-
-# Ollama model management
-[tasks.ollama-pull]
-description = "Pull Mistral model into Ollama"
-run = "docker compose exec ollama ollama pull mistral:7b"
-
-[tasks.ollama-list]
-description = "List available Ollama models"
-run = """
-curl -s http://localhost:11434/api/tags | python -m json.tool || \
-echo "Ollama not responding - is it running?"
-"""
-
-[tasks.ollama-pull-init]
-description = "Run ollama-init service to pull models"
-run = "docker compose --profile init up ollama-init"
-
-# Health checks
-[tasks.health]
-description = "Check health of all services"
-run = """
-echo "=== Qdrant ===" && \
-curl -s http://localhost:6333/healthz | grep -q ok && echo "OK" || echo "FAIL" && \
-echo "=== API ===" && \
-curl -s http://localhost:8000/health | grep -q ok && echo "OK" || echo "FAIL" && \
-echo "=== Ollama ===" && \
-curl -s http://localhost:11434/api/tags > /dev/null && echo "OK" || echo "FAIL"
-"""
-
-[tasks.health-api]
-description = "Check API health"
-run = "curl -s http://localhost:8000/health | python -m json.tool"
-
-[tasks.health-qdrant]
-description = "Check Qdrant health"
-run = "curl -s http://localhost:6333/healthz"
-
-[tasks.health-ollama]
-description = "Check Ollama health"
-run = """
-curl -s http://localhost:11434/api/tags | python -m json.tool || \
-echo "Ollama not responding"
-"""
-
-# Development override
-[tasks.docker-dev]
-description = "Start with dev override (hot reload enabled)"
-run = """
-if [ ! -f docker-compose.override.yml ]; then
-  echo "Creating docker-compose.override.yml from example..."
-  cp docker-compose.override.yml.example docker-compose.override.yml
-fi
-docker compose up --build
-"""
-
-[tasks.docker-status]
-description = "Show Docker stack status (containers + health)"
-run = """
-echo "=== Containers ===" && \
-docker compose ps && \
-echo "" && \
-echo "=== Service Health ===" && \
-echo -n "Qdrant:   " && curl -s http://localhost:6333/healthz 2>/dev/null | grep -q ok && echo "✓ UP" || echo "✗ DOWN" && \
-echo -n "API:      " && curl -s http://localhost:8000/health 2>/dev/null | grep -q ok && echo "✓ UP" || echo "✗ DOWN" && \
-echo -n "Frontend: " && curl -s http://localhost:8501/_stcore/health 2>/dev/null | grep -q ok && echo "✓ UP" || echo "✗ DOWN" && \
-echo -n "Ollama:   " && curl -s http://localhost:11434/api/tags 2>/dev/null > /dev/null && echo "✓ UP" || echo "✗ DOWN"
-"""
-
-# =============================================================================
-# DEVELOPMENT SERVER
-# =============================================================================
+[tasks.ollama]
+description = "Start local Ollama server"
+run = "ollama serve"
 
 [tasks.api]
 description = "Start FastAPI dev server with hot reload"
 run = "uv run uvicorn app.main:app --reload --host $API_HOST --port $API_PORT"
-
-[tasks.api-prod]
-description = "Start FastAPI production server"
-run = "uv run uvicorn app.main:app --host $API_HOST --port $API_PORT --workers 4"
 
 [tasks.frontend]
 description = "Start Streamlit frontend"
 run = "uv run streamlit run frontend/app.py"
 
 [tasks.all]
-description = "Start all services (infra + api + frontend)"
-depends = ["dev", "api"]
-
-# =============================================================================
-# TESTING
-# =============================================================================
+description = "Start all services (infra + ollama + api + frontend)"
+depends = ["dev", "ollama", "api"]
 
 [tasks.test]
 description = "Run all tests"
 run = "uv run pytest tests/ -v"
 
-[tasks.test-cov]
-description = "Run tests with coverage report"
-run = "uv run pytest tests/ -v --cov=app --cov-report=html --cov-report=term"
-
-[tasks.test-unit]
-description = "Run unit tests only"
-run = "uv run pytest tests/ -v -m unit"
-
-[tasks.test-integration]
-description = "Run integration tests only"
-run = "uv run pytest tests/ -v -m integration"
-
-[tasks.test-watch]
-description = "Run tests in watch mode"
-run = "uv run pytest tests/ -f"
-
-# =============================================================================
-# LINTING & FORMATTING
-# =============================================================================
-
-[tasks.lint]
-description = "Run ruff linter"
-run = "uv run ruff check ."
-
-[tasks.lint-fix]
-description = "Run ruff linter with auto-fix"
-run = "uv run ruff check . --fix"
-
-[tasks.format]
-description = "Run ruff formatter"
-run = "uv run ruff format ."
-
-[tasks.typecheck]
-description = "Run mypy type checking"
-run = "uv run mypy app/"
-
-[tasks.quality]
-description = "Run full quality check (lint + format + typecheck + test)"
-depends = ["format", "lint", "typecheck", "test"]
-
-# =============================================================================
-# DATA & UTILITIES
-# =============================================================================
+[tasks.check]
+description = "Run static analysis only (format + lint + typecheck, no tests)"
+run = """
+uv run ruff format .
+uv run ruff check .
+uv run mypy app/
+"""
 
 [tasks.seed]
 description = "Seed sample data into collections"
 run = "uv run python scripts/seed_demo.py"
 
-[tasks.benchmark]
-description = "Run performance benchmarks"
-run = "uv run python scripts/benchmark.py"
-
-[tasks.clean-uploads]
-description = "Clean uploads directory"
-run = "rm -rf uploads/*"
-
-[tasks.reset-db]
-description = "Reset Qdrant data (WARNING: deletes all collections)"
-run = """
-curl -X DELETE http://localhost:6333/collections/doctalk_default_hr_policies 2>/dev/null || true
-curl -X DELETE http://localhost:6333/collections/doctalk_default_financial 2>/dev/null || true
-curl -X DELETE http://localhost:6333/collections/doctalk_default_compliance 2>/dev/null || true
-echo "Collections reset"
-"""
-
-# =============================================================================
-# EVALUATION
-# =============================================================================
-
 [tasks.eval]
 description = "Run RAGAS evaluation"
 run = "uv run python eval/run_ragas.py"
-
-[tasks.eval-deep]
-description = "Run DeepEval evaluation"
-run = "uv run python eval/run_deepeval.py"
-
-[tasks.eval-all]
-description = "Run all evaluations"
-depends = ["eval", "eval-deep"]
-
-# =============================================================================
-# SHELL & DEBUG
-# =============================================================================
-
-[tasks.py]
-description = "Run Python in project environment (usage: mise run py -- -c \"print(1)\")"
-run = "uv run python {{arg(name='args', var=true, default='')}}"
-
-[tasks.run]
-description = "Run arbitrary command in uv env (usage: mise run run -- <cmd>)"
-run = "uv run {{arg(name='cmd', var=true)}}"

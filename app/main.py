@@ -5,13 +5,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import collections, health, query, upload
 from app.config import settings
+from app.ingestion.embedder import Embedder
+from app.llm.ollama_client import OllamaClient
+from app.storage.vector_db_client import VectorDB
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    # TODO: initialize Qdrant client, embedder, etc.
+async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
+    app.state.embedder = Embedder(settings.embedding_model)
+    app.state.vector_db_client = VectorDB(settings.vector_db_url)
+    app.state.chat_model = OllamaClient(settings.ollama_url, settings.default_llm_model)
     yield
-    # TODO: cleanup
 
 
 app = FastAPI(

@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_key: str = "changeme"
 
-    qdrant_url: str = "http://localhost:6333"
+    vector_db_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None
 
     ollama_url: str = "http://localhost:11434"
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     use_reranking: bool = True
 
     class Config:
-        env_file = ".env"
+        env_file = (".env", ".env.local")
         extra = "ignore"
 
 

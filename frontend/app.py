@@ -2,7 +2,7 @@ import os
 
 import httpx
 import streamlit as st
-from models import CollectionInfo, QueryResponse
+from doctalk_shared.models import CollectionInfo, QueryResponse
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 

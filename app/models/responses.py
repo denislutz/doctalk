@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class SourceChunk(BaseModel):
-    filename: str
+    source_name: str
     format: str
     page_number: int | None = None
     section_header: str | None = None

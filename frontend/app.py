@@ -30,11 +30,11 @@ with st.sidebar:
         collections = response.json()
     if len(collections) == 0:
         st.info("Upload a document first")
-    selected = st.selectbox("Existing topic", options=collections or ["Sample Topic"])
+    selected = st.selectbox("Existing topics", options=collections or ["Sample Topic"])
 
 
 # --- Tabs ---
-upload_tab, query_tab = st.tabs(["Upload", "Query"])
+upload_tab, query_tab, collecitons_tab = st.tabs(["Upload", "Query", "Collections"])
 
 
 # --- Upload tab ---
@@ -45,7 +45,7 @@ with upload_tab:
     new_topic = st.text_input(
         f"Name your new topic for the files to be associated with, or leave blank to use the current topic '{selected}'."
     )
-    original_source_name = st.text_input("Original source name (optional)", value="")
+    source_name = st.text_input("Original source name (optional)", value="")
     topic = new_topic.strip() if new_topic.strip() else selected
 
     if st.button("Upload", disabled=uploaded_file is None or not topic):
@@ -53,7 +53,7 @@ with upload_tab:
         response = http_client.post(
             f"{API_URL}/upload/{topic}",
             files={"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")},
-            data={"original_source_name": original_source_name},
+            data={"source_name": source_name},
         )
         if response.status_code == 200:
             st.success(
@@ -78,7 +78,9 @@ with query_tab:
     st.subheader("Ask a question")
     q_col, k_col = st.columns([0.8, 0.2])
     with q_col:
-        question = st.text_input("Your question, select the right topic before...")
+        question = st.text_input(
+            "Your question, select the right topic before...", value="Staatenlos, was bedeutet das?"
+        )
     with k_col:
         top_k = st.slider("Number of sources", min_value=1, max_value=5, value=5)
 
@@ -94,7 +96,7 @@ with query_tab:
             sources = response_data["sources"]
             for source in sources:
                 with st.expander(
-                    f"{source['filename']} · page {source['page_number']} · score {source['relevance_score']:.3f}"
+                    f"{source['source_name']} · page {source['page_number']} · score {source['relevance_score']:.3f}"
                 ):
                     st.caption(source["content_snippet"])
             st.caption(
@@ -102,3 +104,20 @@ with query_tab:
             )
         else:
             st.error("Query failed")
+
+with collecitons_tab:
+    st.subheader("Collections")
+    response = http_client.get(f"{API_URL}/collections")
+    if response.status_code == 200:
+        for topic in response.json():
+            name_col, action_col = st.columns([0.8, 0.2])
+            name_col.write(topic)
+            if action_col.button("Delete", key=f"delete-{topic}"):
+                r = http_client.delete(f"{API_URL}/collections/{topic}")
+                if r.status_code == 200:
+                    st.success(f"Deleted {topic}")
+                    st.rerun()
+                else:
+                    st.error(f"Failed to delete {topic}")
+    else:
+        st.error("Failed to get collections")

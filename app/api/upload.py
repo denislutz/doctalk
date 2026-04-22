@@ -14,7 +14,7 @@ async def upload_document(
     request: Request,
     topic: str,
     file: UploadFile = File(...),  # noqa: B008
-    original_source_name: str = Form(None),
+    source_name: str = Form(None),
 ) -> dict[str, object] | None:
     if file and file.filename:
         content_type = file.filename.split(".")[-1]
@@ -25,7 +25,7 @@ async def upload_document(
         print(f"File path: {file_path} {file.filename}")
         if content_type == "pdf":
             long_content = loader_pdf.load_pdf(
-                path=file_path, source_name=original_source_name or file.filename
+                path=file_path, source_name=source_name or file.filename
             )
             os.unlink(file_path)
             chunks = chunker.chunk(long_content)
@@ -42,3 +42,10 @@ async def upload_document(
                 "topic": topic,
             }
     return None
+
+
+@router.delete("/{topic}")
+async def delete_topic(request: Request, topic: str) -> dict[str, str]:
+    vector_db_client: VectorDB = request.app.state.vector_db_client
+    vector_db_client.delete_collection(topic)
+    return {"topic": topic}

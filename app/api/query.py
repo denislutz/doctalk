@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Any
 
@@ -10,7 +11,7 @@ from app.models.responses import QueryResponse, SourceChunk
 from app.storage.vector_db_client import VectorDB
 
 router = APIRouter(prefix="/query", tags=["query"])
-
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """
 You are a helpful assistant that answers questions based on the provided context.
@@ -57,16 +58,18 @@ def _build_prompt(question: str, hits: list[tuple[dict[str, Any], float]]) -> st
         payload, score = hit
         if score < MINIMAL_SCORE:
             continue
-        filename = payload.get("filename", "Unknown")
+        source_name = payload.get("source_name", "")
         page = payload.get("page", "")
         content = payload.get("content", "")
-        chunk = f"Source: {filename}, page: {page}\n{content}\n\n"
+        chunk = f"Source: {source_name}, page: {page}\n{content}\n\n"
         formatted_chunks += chunk
-    return (
+    resulting_prompt = (
         SYSTEM_PROMPT
         + "\n\n"
         + USER_PROMPT.format(formatted_chunks=formatted_chunks, user_question=question)
     )
+    logger.debug(f"Resulting prompt: {resulting_prompt}")
+    return resulting_prompt
 
 
 async def _generate(request: Request, prompt: str) -> str:
@@ -78,10 +81,9 @@ def _to_source_chunks(hits: list[tuple[dict[str, Any], float]]) -> list[SourceCh
     source_chunks = []
     for payload, score in hits:
         ch = SourceChunk(
-            filename=payload["filename"],
+            source_name=payload["source_name"],
             format=payload.get("format", "pdf"),
             page_number=payload.get("page"),
-            section_header=payload.get("section_header"),
             content_snippet=payload["content"][:500],
             relevance_score=score,
         )
@@ -95,7 +97,10 @@ async def query(request: Request, body: QueryRequest) -> QueryResponse:
     topic = _validate_topics(topics)
 
     t0 = time.perf_counter()
+    # transform the question to embeddings
     question_embeddings = _embed_question(request, question)
+
+    # retrieve the most relevant chunks using the question embeddings
     context_enrichment = _retrieve(
         request=request,
         topic=topic,
@@ -103,7 +108,7 @@ async def query(request: Request, body: QueryRequest) -> QueryResponse:
         top_k=top_k,
     )
     retrieval_ms = (time.perf_counter() - t0) * 1000
-
+    # now with the enriched context we can build the prompt
     prompt = _build_prompt(question, context_enrichment)
 
     t1 = time.perf_counter()

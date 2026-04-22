@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,6 +9,11 @@ from app.config import settings
 from app.ingestion.embedder import Embedder
 from app.llm.ollama_client import OllamaClient
 from app.storage.vector_db_client import VectorDB
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
+)
 
 
 @asynccontextmanager

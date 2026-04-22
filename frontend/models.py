@@ -1,6 +1,13 @@
 from pydantic import BaseModel
 
 
+class CollectionInfo(BaseModel):
+    name: str
+    description: str
+    size: int
+    metadata: dict[str, object] = {}
+
+
 class SourceChunk(BaseModel):
     source_name: str
     format: str
@@ -16,10 +23,3 @@ class QueryResponse(BaseModel):
     tokens_used: int
     retrieval_time_ms: float
     generation_time_ms: float
-
-
-class CollectionInfo(BaseModel):
-    name: str
-    description: str
-    size: int
-    metadata: dict[str, object] = {}

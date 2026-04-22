@@ -27,7 +27,7 @@ class VectorDB:
         return {
             "name": name,
             "config": collection.config,
-            "points_count": collection.points_count,
+            "points_count": collection.points_count or 0,
         }
 
     def upsert_chunks(

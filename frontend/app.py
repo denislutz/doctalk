@@ -2,6 +2,7 @@ import os
 
 import httpx
 import streamlit as st
+from models import CollectionInfo, QueryResponse
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
@@ -12,22 +13,29 @@ st.set_page_config(page_title="DocTalk", page_icon="📄", layout="wide")
 st.title("DocTalk")
 st.caption("Self-hosted RAG — talk to your data!")
 
+# --- Health check ---
+try:
+    r = http_client.get(f"{API_URL}/health", timeout=10)
+    backend_ready = r.status_code == 200
+except (httpx.ConnectError, httpx.ReadTimeout):
+    backend_ready = False
 
 # --- Sidebar: topic selector ---
 with st.sidebar:
-    # --- Health check ---
-    r = http_client.get(f"{API_URL}/health", timeout=3)
-    backend_ready = r.status_code == 200
     if backend_ready:
         st.success("Systems ready")
     else:
         st.error("Systems not ready")
 
     st.header("Current Topic")
-    response = http_client.get(f"{API_URL}/collections")
     collections = []
-    if response.status_code == 200:
-        collections = response.json()
+    try:
+        response = http_client.get(f"{API_URL}/collections")
+        if response.status_code == 200:
+            collections_full = [CollectionInfo.model_validate(c) for c in response.json()]
+            collections = [c.name for c in collections_full]
+    except (httpx.ConnectError, httpx.ReadTimeout):
+        pass
     if len(collections) == 0:
         st.info("Upload a document first")
     selected = st.selectbox("Existing topics", options=collections or ["Sample Topic"])
@@ -91,16 +99,15 @@ with query_tab:
                 json={"question": question, "topics": [topic], "top_k": top_k},
             )
         if response.status_code == 200:
-            response_data = response.json()
-            st.markdown(response_data["answer"])
-            sources = response_data["sources"]
-            for source in sources:
+            data = QueryResponse.model_validate(response.json())
+            st.markdown(data.answer)
+            for source in data.sources:
                 with st.expander(
-                    f"{source['source_name']} · page {source['page_number']} · score {source['relevance_score']:.3f}"
+                    f"{source.source_name} · page {source.page_number} · score {source.relevance_score:.3f}"
                 ):
-                    st.caption(source["content_snippet"])
+                    st.caption(source.content_snippet)
             st.caption(
-                f"Retrieval {response_data['retrieval_time_ms']:.0f}ms · Generation {response_data['generation_time_ms']:.0f}ms"
+                f"Retrieval {data.retrieval_time_ms:.0f}ms · Generation {data.generation_time_ms:.0f}ms"
             )
         else:
             error_detail = response.json().get("detail", "Query failed")
@@ -110,15 +117,18 @@ with topics_tab:
     st.subheader("Topics")
     response = http_client.get(f"{API_URL}/collections")
     if response.status_code == 200:
-        for topic in response.json():
-            name_col, action_col = st.columns([0.8, 0.2])
-            name_col.write(topic)
-            if action_col.button("Delete", key=f"delete-{topic}"):
-                r = http_client.delete(f"{API_URL}/collections/{topic}")
+        topic_list = [CollectionInfo.model_validate(t) for t in response.json()]
+        for col_info in topic_list:
+            name_col, desc_col, action_col = st.columns([0.2, 0.4, 0.2])
+            name_col.write(col_info.name)
+            desc_col.write(col_info.description)
+            desc_col.write(f"Size: {col_info.size} chunks")
+            if action_col.button("Delete", key=f"delete-{col_info.name}"):
+                r = http_client.delete(f"{API_URL}/collections/{col_info.name}")
                 if r.status_code == 200:
-                    st.toast(f"Deleted {topic}")
+                    st.toast(f"Deleted {col_info.name}")
                     st.rerun()
                 else:
-                    st.toast(f"Failed to delete {topic}", icon="❌")
+                    st.toast(f"Failed to delete {col_info.name}", icon="❌")
     else:
         st.toast("Failed to get collections", icon="❌")

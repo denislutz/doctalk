@@ -75,7 +75,7 @@ def _build_prompt(question: str, hits: list[tuple[dict[str, Any], float]]) -> st
     return resulting_prompt
 
 
-async def _generate(request: Request, prompt: str) -> str:
+async def _generate_anwser(request: Request, prompt: str) -> str:
     chat_model: OllamaClient = request.app.state.chat_model
     return await chat_model.generate(prompt)
 
@@ -114,7 +114,7 @@ async def query(request: Request, body: QueryRequest) -> QueryResponse:
     prompt = _build_prompt(question, context_enrichment)
 
     t1 = time.perf_counter()
-    answer = await _generate(request, prompt)
+    answer = await _generate_anwser(request, prompt)
     generation_ms = (time.perf_counter() - t1) * 1000
 
     return QueryResponse(

@@ -11,9 +11,13 @@ from app.llm.ollama_client import OllamaClient
 from app.storage.vector_db_client import VectorDB
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
 )
+
+logger = logging.getLogger(__name__)
+
+logger.info("Starting DocTalk API")
 
 
 @asynccontextmanager

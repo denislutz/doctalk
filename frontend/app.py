@@ -116,7 +116,7 @@ with topics_tab:
             if action_col.button("Delete", key=f"delete-{topic}"):
                 r = http_client.delete(f"{API_URL}/collections/{topic}")
                 if r.status_code == 200:
-                    st.success(f"Deleted {topic}")
+                    st.toast(f"Deleted {topic}")
                     st.rerun()
                 else:
                     st.toast(f"Failed to delete {topic}", icon="❌")

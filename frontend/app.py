@@ -34,7 +34,7 @@ with st.sidebar:
 
 
 # --- Tabs ---
-upload_tab, query_tab, collecitons_tab = st.tabs(["Upload", "Query", "Collections"])
+upload_tab, query_tab, topics_tab = st.tabs(["Upload", "Query", "Topics"])
 
 
 # --- Upload tab ---
@@ -103,10 +103,11 @@ with query_tab:
                 f"Retrieval {response_data['retrieval_time_ms']:.0f}ms · Generation {response_data['generation_time_ms']:.0f}ms"
             )
         else:
-            st.error("Query failed")
+            error_detail = response.json().get("detail", "Query failed")
+            st.toast(error_detail, icon="❌")
 
-with collecitons_tab:
-    st.subheader("Collections")
+with topics_tab:
+    st.subheader("Topics")
     response = http_client.get(f"{API_URL}/collections")
     if response.status_code == 200:
         for topic in response.json():
@@ -118,6 +119,6 @@ with collecitons_tab:
                     st.success(f"Deleted {topic}")
                     st.rerun()
                 else:
-                    st.error(f"Failed to delete {topic}")
+                    st.toast(f"Failed to delete {topic}", icon="❌")
     else:
-        st.error("Failed to get collections")
+        st.toast("Failed to get collections", icon="❌")

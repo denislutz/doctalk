@@ -47,7 +47,10 @@ def _retrieve(
 ) -> list[tuple[dict[str, Any], float]]:
     vector_db: VectorDB = request.app.state.vector_db_client
     if not vector_db.is_present_collection(topic):
-        raise Exception(f"Collection {topic} not found")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Topic '{topic}' not found, pls create a topic first and upload some docs to start asking questions.",
+        )
     return vector_db.search(collection=topic, vector=question_embeddings, top_k=top_k)
 
 
@@ -108,7 +111,6 @@ async def query(request: Request, body: QueryRequest) -> QueryResponse:
         top_k=top_k,
     )
     retrieval_ms = (time.perf_counter() - t0) * 1000
-    # now with the enriched context we can build the prompt
     prompt = _build_prompt(question, context_enrichment)
 
     t1 = time.perf_counter()

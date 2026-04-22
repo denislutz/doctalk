@@ -1,9 +1,17 @@
+from dataclasses import dataclass
 from uuid import uuid4
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
 from app.ingestion.loader_pdf import DocumentChunk
+
+
+@dataclass
+class CollectionStats:
+    name: str
+    points_count: int
+    config: object
 
 
 class VectorDB:
@@ -22,13 +30,13 @@ class VectorDB:
             )
             print(f"Collection created! {name}")
 
-    def get_collection(self, name: str) -> dict[str, object]:
+    def get_collection(self, name: str) -> CollectionStats:
         collection = self.client.get_collection(name)
-        return {
-            "name": name,
-            "config": collection.config,
-            "points_count": collection.points_count or 0,
-        }
+        return CollectionStats(
+            name=name,
+            config=collection.config,
+            points_count=collection.points_count or 0,
+        )
 
     def upsert_chunks(
         self,

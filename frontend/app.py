@@ -121,7 +121,6 @@ with topics_tab:
         for col_info in topic_list:
             name_col, desc_col, action_col = st.columns([0.2, 0.4, 0.2])
             name_col.write(col_info.name)
-            desc_col.write(col_info.description)
             desc_col.write(f"Size: {col_info.size} chunks")
             if action_col.button("Delete", key=f"delete-{col_info.name}"):
                 r = http_client.delete(f"{API_URL}/collections/{col_info.name}")

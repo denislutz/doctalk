@@ -2,12 +2,11 @@ import logging
 import time
 from typing import Any
 
+from doctalk_shared.models import QueryRequest, QueryResponse, SourceChunk
 from fastapi import APIRouter, HTTPException, Request
 
 from app.ingestion.embedder import Embedder
 from app.llm.ollama_client import OllamaClient
-from app.models.requests import QueryRequest
-from app.models.responses import QueryResponse, SourceChunk
 from app.storage.vector_db_client import VectorDB
 
 router = APIRouter(prefix="/query", tags=["query"])

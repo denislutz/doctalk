@@ -2,7 +2,7 @@ import logging
 import time
 from typing import Any
 
-from doctalk_shared.models import QueryRequest, QueryResponse, SourceChunk
+from doctalk_shared.models import ChatMessage, QueryRequest, QueryResponse, SourceChunk
 from fastapi import APIRouter, HTTPException, Request
 
 from app.ingestion.embedder import Embedder
@@ -70,9 +70,13 @@ def _build_prompt(question: str, hits: list[tuple[dict[str, Any], float]]) -> tu
     return SYSTEM_PROMPT.strip(), user_message.strip()
 
 
-async def _generate_anwser(request: Request, system: str, user: str) -> str:
+async def _generate_anwser(
+    *, request: Request, system_content: str, user_content: str, history: list[ChatMessage]
+) -> str:
     chat_model: OllamaClient = request.app.state.chat_model
-    return await chat_model.generate(system, user)
+    return await chat_model.generate(
+        system_content=system_content, user_content=user_content, history=history
+    )
 
 
 def _to_source_chunks(hits: list[tuple[dict[str, Any], float]]) -> list[SourceChunk]:
@@ -109,7 +113,9 @@ async def query(request: Request, body: QueryRequest) -> QueryResponse:
     system, user = _build_prompt(question, context_enrichment)
 
     t1 = time.perf_counter()
-    answer = await _generate_anwser(request, system, user)
+    answer = await _generate_anwser(
+        request=request, system_content=system, user_content=user, history=body.history
+    )
     generation_ms = (time.perf_counter() - t1) * 1000
 
     return QueryResponse(

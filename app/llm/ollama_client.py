@@ -1,4 +1,5 @@
 import ollama
+from doctalk_shared.models import ChatMessage
 
 
 class OllamaClient:
@@ -7,10 +8,13 @@ class OllamaClient:
         self.model = model
         self.client = ollama.AsyncClient(host=base_url, timeout=120.0)
 
-    async def generate(self, system: str, user: str) -> str:
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ]
+    async def generate(
+        self, *, system_content: str, user_content: str, history: list[ChatMessage] | None = None
+    ) -> str:
+        # system → history turns → current user message. Truncate history here if token budget is a concern.
+        messages: list[dict[str, str]] = [{"role": "system", "content": system_content}]
+        for msg in history or []:
+            messages.append({"role": msg.role, "content": msg.content})
+        messages.append({"role": "user", "content": user_content})
         response = await self.client.chat(model=self.model, messages=messages)
         return str(response["message"]["content"])

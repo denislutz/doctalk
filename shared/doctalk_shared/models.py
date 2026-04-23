@@ -13,11 +13,20 @@ class DocumentUpload(BaseModel):
 # --- Query ---
 
 
+class ChatMessage(BaseModel):
+    # role must be "user" or "assistant" — maps directly to ollama/openai message roles
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class QueryRequest(BaseModel):
     question: str
     topics: list[str] | None = None
     top_k: int = 5
     use_reranking: bool = True
+    # history: prior turns in the conversation, oldest first.
+    # Only the current question gets RAG context injected; history is passed as-is.
+    history: list[ChatMessage] = []
 
 
 class SourceChunk(BaseModel):

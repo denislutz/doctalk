@@ -2,7 +2,7 @@ import os
 
 import httpx
 import streamlit as st
-from doctalk_shared.models import CollectionInfo, QueryResponse
+from doctalk_shared.models import ChatMessage, CollectionInfo, QueryResponse
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
@@ -79,23 +79,43 @@ with upload_tab:
     st.caption("Coming soon — not wired in this slice.")
 
 with query_tab:
-    st.subheader("Ask a question")
-    q_col, k_col = st.columns([0.8, 0.2])
-    with q_col:
-        question = st.text_input(
-            "Your question, select the right topic before...", value="Staatenlos, was bedeutet das?"
-        )
-    with k_col:
-        top_k = st.slider("Number of sources", min_value=1, max_value=5, value=5)
+    # Reset it when the topic changes so history doesn't bleed across collections.
+    if "chat_history" not in st.session_state:
+        st.session_state["chat_history"] = []
 
-    if st.button("Ask", disabled=len(question.strip()) < 10):
+    # Render prior turns here before the input so the user sees the thread.
+    for chat_msg in st.session_state["chat_history"]:
+        with st.chat_message(chat_msg.role):
+            st.markdown(chat_msg.content)
+
+    q_col, btn_col = st.columns([0.8, 0.2])
+    with q_col:
+        question = st.text_input("Your question, select the right topic before...")
+    with btn_col:
+        st.write("")
+        ask = st.button("Ask", disabled=len(question.strip()) < 10)
+
+    if ask:
+        NUMBER_OF_SOURCES = 5
         with st.spinner("Thinking..."):
             response = http_client.post(
                 f"{API_URL}/query",
-                json={"question": question, "topics": [topic], "top_k": top_k},
+                json={
+                    "question": question,
+                    "topics": [topic],
+                    "top_k": NUMBER_OF_SOURCES,
+                    "history": [m.model_dump() for m in st.session_state["chat_history"]],
+                },
             )
         if response.status_code == 200:
             data = QueryResponse.model_validate(response.json())
+
+            # Append the new turn so follow-ups include it. Cap length if context gets too long.
+            st.session_state["chat_history"].append(ChatMessage(role="user", content=question))
+            st.session_state["chat_history"].append(
+                ChatMessage(role="assistant", content=data.answer)
+            )
+
             st.markdown(data.answer)
             for source in data.sources:
                 with st.expander(
@@ -105,9 +125,12 @@ with query_tab:
             st.caption(
                 f"Retrieval {data.retrieval_time_ms:.0f}ms · Generation {data.generation_time_ms:.0f}ms"
             )
+            st.rerun()
         else:
             error_detail = response.json().get("detail", "Query failed")
             st.toast(error_detail, icon="❌")
+
+    # Add a "Clear conversation" button here.
 
 with topics_tab:
     st.subheader("Topics")

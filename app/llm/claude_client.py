@@ -3,6 +3,6 @@ class ClaudeClient:
         self.api_key = api_key
         self.model = model
 
-    async def generate(self, prompt: str) -> str:
+    async def generate(self, system: str, user: str) -> str:
         # TODO: implement via anthropic SDK
         raise NotImplementedError

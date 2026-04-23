@@ -66,8 +66,7 @@ with upload_tab:
             st.success(
                 f"Uploaded {response.json().get('doc_id')} — {response.json().get('chunk_count')} chunks indexed"
             )
-            if topic not in collections:
-                st.rerun()
+            st.rerun()
         else:
             st.error(response.json().get("detail", "Upload failed"))
 

@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 
@@ -8,6 +9,8 @@ from app.storage.vector_db_client import VectorDB
 
 router = APIRouter(prefix="/upload", tags=["upload"])
 
+logger = logging.getLogger(__name__)
+
 
 @router.post("/{topic}")
 async def upload_document(
@@ -17,12 +20,12 @@ async def upload_document(
     source_name: str = Form(None),
 ) -> dict[str, object] | None:
     if file and file.filename:
+        logger.debug(f"Uploading file {file.filename}")
         content_type = file.filename.split(".")[-1]
         contents = await file.read()
         with tempfile.NamedTemporaryFile(delete=False, suffix=f".{content_type}") as temp_file:
             temp_file.write(contents)
             file_path = temp_file.name
-        print(f"File path: {file_path} {file.filename}")
         if content_type == "pdf":
             long_content = loader_pdf.load_pdf(
                 path=file_path, source_name=source_name or file.filename

@@ -45,7 +45,6 @@ with st.sidebar:
 upload_tab, query_tab, topics_tab = st.tabs(["Upload", "Query", "Topics"])
 
 
-# --- Upload tab ---
 with upload_tab:
     st.subheader("Upload a document")
 
@@ -80,8 +79,6 @@ with upload_tab:
     )
     st.caption("Coming soon — not wired in this slice.")
 
-
-# --- Query tab ---
 with query_tab:
     st.subheader("Ask a question")
     q_col, k_col = st.columns([0.8, 0.2])

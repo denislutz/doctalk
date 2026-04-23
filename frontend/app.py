@@ -88,12 +88,11 @@ with query_tab:
         with st.chat_message(chat_msg.role):
             st.markdown(chat_msg.content)
 
-    q_col, btn_col = st.columns([0.8, 0.2])
+    q_col, btn_col = st.columns([0.8, 0.2], vertical_alignment="bottom")
     with q_col:
         question = st.text_input("Your question, select the right topic before...")
     with btn_col:
-        st.write("")
-        ask = st.button("Ask", disabled=len(question.strip()) < 10)
+        ask = st.button("Ask 🚀", type="primary", disabled=len(question.strip()) < 10)
 
     if ask:
         NUMBER_OF_SOURCES = 5

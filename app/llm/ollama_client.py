@@ -7,6 +7,10 @@ class OllamaClient:
         self.model = model
         self.client = ollama.AsyncClient(host=base_url, timeout=120.0)
 
-    async def generate(self, prompt: str) -> str:
-        response = await self.client.generate(model=self.model, prompt=prompt)
-        return str(response["response"])
+    async def generate(self, system: str, user: str) -> str:
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ]
+        response = await self.client.chat(model=self.model, messages=messages)
+        return str(response["message"]["content"])

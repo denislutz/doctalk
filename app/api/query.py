@@ -53,7 +53,7 @@ def _retrieve(
     return vector_db.search(collection=topic, vector=question_embeddings, top_k=top_k)
 
 
-def _build_prompt(question: str, hits: list[tuple[dict[str, Any], float]]) -> str:
+def _build_prompt(question: str, hits: list[tuple[dict[str, Any], float]]) -> tuple[str, str]:
     formatted_chunks = ""
 
     for hit in hits:
@@ -65,18 +65,14 @@ def _build_prompt(question: str, hits: list[tuple[dict[str, Any], float]]) -> st
         content = payload.get("content", "")
         chunk = f"Source: {source_name}, page: {page}\n{content}\n\n"
         formatted_chunks += chunk
-    resulting_prompt = (
-        SYSTEM_PROMPT
-        + "\n\n"
-        + USER_PROMPT.format(formatted_chunks=formatted_chunks, user_question=question)
-    )
-    logger.debug(f"Resulting prompt: {resulting_prompt}")
-    return resulting_prompt
+    user_message = USER_PROMPT.format(formatted_chunks=formatted_chunks, user_question=question)
+    logger.debug(f"Resulting Prompt | System: {SYSTEM_PROMPT}\n User: {user_message}")
+    return SYSTEM_PROMPT.strip(), user_message.strip()
 
 
-async def _generate_anwser(request: Request, prompt: str) -> str:
+async def _generate_anwser(request: Request, system: str, user: str) -> str:
     chat_model: OllamaClient = request.app.state.chat_model
-    return await chat_model.generate(prompt)
+    return await chat_model.generate(system, user)
 
 
 def _to_source_chunks(hits: list[tuple[dict[str, Any], float]]) -> list[SourceChunk]:
@@ -110,10 +106,10 @@ async def query(request: Request, body: QueryRequest) -> QueryResponse:
         top_k=top_k,
     )
     retrieval_ms = (time.perf_counter() - t0) * 1000
-    prompt = _build_prompt(question, context_enrichment)
+    system, user = _build_prompt(question, context_enrichment)
 
     t1 = time.perf_counter()
-    answer = await _generate_anwser(request, prompt)
+    answer = await _generate_anwser(request, system, user)
     generation_ms = (time.perf_counter() - t1) * 1000
 
     return QueryResponse(

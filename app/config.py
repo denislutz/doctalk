@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     embedding_model: str = "all-MiniLM-L6-v2"
     upload_dir: str = "/app/uploads"
+    registry_db_path: str = "/app/data/registry.db"  # SQLite file for the document registry
 
     max_chunk_size: int = 512
     chunk_overlap: int = 50

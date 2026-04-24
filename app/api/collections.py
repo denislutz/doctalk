@@ -1,8 +1,9 @@
 import logging
 
-from doctalk_shared.models import CollectionInfo
+from doctalk_shared.models import CollectionInfo, IndexedDocument
 from fastapi import APIRouter, Request
 
+from app.storage.doc_registry import DocRecord, DocRegistry
 from app.storage.vector_db_client import CollectionStats, VectorDB
 
 logger = logging.getLogger(__name__)
@@ -45,15 +46,46 @@ async def create_collection(request: Request, topic: str) -> dict[str, str]:
 
 
 @router.get("/{topic}")
-async def get_collection(request: Request, topic: str) -> dict[str, object]:
+async def get_collection(request: Request, topic: str) -> CollectionInfo:
     vector_db: VectorDB = request.app.state.vector_db_client
+    registry: DocRegistry = request.app.state.doc_registry
+
     stats: CollectionStats = vector_db.get_collection(topic)
     logger.info(f"Collection stats for topic '{topic}': {stats}")
-    return {"topic": topic, "points_count": stats.points_count}
+
+    # Fetch indexed documents from the registry (single SQL query, no Qdrant scroll needed).
+    # TODO: call registry.list_documents(topic) and map each DocRecord to IndexedDocument.
+    records: list[DocRecord] = registry.list_documents(topic)
+    documents = [
+        IndexedDocument(
+            doc_id=r.doc_id,
+            source_name=r.source_name,
+            filename=r.filename,
+            format=r.format,
+            chunk_count=r.chunk_count,
+            ingested_at=r.ingested_at,
+        )
+        for r in records
+    ]
+
+    return CollectionInfo(
+        name=topic,
+        description="",
+        size=stats.points_count,
+        doc_count=len(documents),
+        documents=documents,
+    )
 
 
 @router.delete("/{topic}")
 async def delete_collection(request: Request, topic: str) -> dict[str, str]:
     vector_db: VectorDB = request.app.state.vector_db_client
+    registry: DocRegistry = request.app.state.doc_registry
+
     vector_db.delete_collection(topic)
+
+    # Keep registry in sync — remove all doc records for this topic.
+    # TODO: call registry.delete_topic(topic)
+    registry.delete_topic(topic)
+
     return {"topic": topic, "status": "deleted"}

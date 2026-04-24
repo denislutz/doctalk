@@ -49,12 +49,22 @@ class QueryResponse(BaseModel):
 # --- Collections ---
 
 
+class IndexedDocument(BaseModel):
+    doc_id: str
+    source_name: str
+    filename: str
+    format: str
+    chunk_count: int
+    ingested_at: str  # ISO-8601 UTC
+
+
 class CollectionInfo(BaseModel):
     name: str
     description: str
-    size: int
+    size: int  # total chunk count from Qdrant
     formats: list[str] = []
     doc_count: int = 0
+    documents: list[IndexedDocument] = []  # populated by GET /collections/{topic}
     metadata: dict[str, object] = {}
 
 

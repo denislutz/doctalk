@@ -53,11 +53,21 @@ class DocRegistry:
         return conn
 
     def _init_db(self) -> None:
-        # Create the documents table if it doesn't exist yet.
-        # Run once at startup — safe to call repeatedly (IF NOT EXISTS guard).
-        # TODO: execute CREATE TABLE IF NOT EXISTS with the schema described in the module docstring.
-        #       Add a UNIQUE constraint on (file_hash, topic) so the DB itself enforces deduplication.
-        raise NotImplementedError
+        with self._connect() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS documents (
+                    doc_id      TEXT PRIMARY KEY,
+                    topic       TEXT NOT NULL,
+                    source_name TEXT NOT NULL,
+                    filename    TEXT NOT NULL,
+                    format      TEXT NOT NULL,
+                    file_hash   TEXT NOT NULL,
+                    chunk_count INTEGER NOT NULL,
+                    ingested_at TEXT NOT NULL,
+                    UNIQUE(file_hash, topic)
+                )
+            """)
+            conn.commit()
 
     # ------------------------------------------------------------------
     # Duplicate detection
@@ -72,8 +82,12 @@ class DocRegistry:
     def is_duplicate(self, file_hash: str, topic: str) -> bool:
         # Return True if a row with (file_hash, topic) already exists in the table.
         # Used by the upload endpoint to reject re-indexing the same file into the same topic.
-        # TODO: SELECT COUNT(*) FROM documents WHERE file_hash = ? AND topic = ?
-        raise NotImplementedError
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM documents WHERE file_hash = ? AND topic = ?",
+                (file_hash, topic),
+            ).fetchone()
+            return row[0] > 0
 
     # ------------------------------------------------------------------
     # Write
@@ -90,38 +104,62 @@ class DocRegistry:
         file_hash: str,
         chunk_count: int,
     ) -> None:
-        # Insert a new document record after successful Qdrant upsert.
-        # ingested_at should be set to datetime.now(UTC).isoformat() here.
-        # Raise sqlite3.IntegrityError (or a custom DuplicateDocumentError) if the
-        # UNIQUE(file_hash, topic) constraint fires — caller can catch and return HTTP 409.
-        # TODO: INSERT INTO documents (...) VALUES (...)
-        raise NotImplementedError
+        ingested_at = datetime.now(UTC).isoformat()
+        with self._connect() as conn:
+            conn.execute(
+                """INSERT INTO documents
+                   (doc_id, topic, source_name, filename, format, file_hash, chunk_count, ingested_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                (doc_id, topic, source_name, filename, format, file_hash, chunk_count, ingested_at),
+            )
+            conn.commit()
 
     def delete_document(self, doc_id: str) -> None:
-        # Remove a single document record by doc_id.
-        # Called after the corresponding Qdrant points are deleted (see vector_db_client).
-        # TODO: DELETE FROM documents WHERE doc_id = ?
-        raise NotImplementedError
+        with self._connect() as conn:
+            conn.execute("DELETE FROM documents WHERE doc_id = ?", (doc_id,))
+            conn.commit()
 
     def delete_topic(self, topic: str) -> None:
-        # Remove ALL document records for a topic.
-        # Called when the entire Qdrant collection is deleted.
-        # TODO: DELETE FROM documents WHERE topic = ?
-        raise NotImplementedError
+        with self._connect() as conn:
+            conn.execute("DELETE FROM documents WHERE topic = ?", (topic,))
+            conn.commit()
 
     # ------------------------------------------------------------------
     # Read
     # ------------------------------------------------------------------
 
     def list_documents(self, topic: str) -> list[DocRecord]:
-        # Return all documents indexed into a topic, ordered by ingested_at DESC.
-        # Used by GET /collections/{topic} to show the indexed source list.
-        # TODO: SELECT * FROM documents WHERE topic = ? ORDER BY ingested_at DESC
-        #       Map each sqlite3.Row to a DocRecord dataclass and return the list.
-        raise NotImplementedError
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM documents WHERE topic = ? ORDER BY ingested_at DESC", (topic,)
+            )
+            return [
+                DocRecord(
+                    doc_id=row["doc_id"],
+                    topic=row["topic"],
+                    source_name=row["source_name"],
+                    filename=row["filename"],
+                    format=row["format"],
+                    chunk_count=row["chunk_count"],
+                    ingested_at=row["ingested_at"],
+                )
+                for row in rows
+            ]
 
     def get_document(self, doc_id: str) -> DocRecord | None:
-        # Return a single DocRecord by doc_id, or None if not found.
-        # Useful for existence checks before delete operations.
-        # TODO: SELECT * FROM documents WHERE doc_id = ?
-        raise NotImplementedError
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM documents WHERE doc_id = ?",
+                (doc_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            return DocRecord(
+                doc_id=row["doc_id"],
+                topic=row["topic"],
+                source_name=row["source_name"],
+                filename=row["filename"],
+                format=row["format"],
+                chunk_count=row["chunk_count"],
+                ingested_at=row["ingested_at"],
+            )

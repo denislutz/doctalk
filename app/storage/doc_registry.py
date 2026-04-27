@@ -87,7 +87,7 @@ class DocRegistry:
                 "SELECT COUNT(*) FROM documents WHERE file_hash = ? AND topic = ?",
                 (file_hash, topic),
             ).fetchone()
-            return row[0] > 0
+            return int(row[0]) > 0
 
     # ------------------------------------------------------------------
     # Write

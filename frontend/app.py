@@ -1,3 +1,4 @@
+import logging
 import os
 
 import httpx
@@ -5,6 +6,8 @@ import streamlit as st
 from doctalk_shared.models import ChatMessage, CollectionInfo, QueryResponse
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
+
+logger = logging.getLogger(__name__)
 
 http_client = httpx.Client(timeout=120.0)
 
@@ -14,16 +17,23 @@ st.title("DocTalk")
 st.caption("Self-hosted RAG — talk to your data!")
 
 # --- Health check ---
+health_data: dict[str, str] = {}
 try:
     r = http_client.get(f"{API_URL}/health", timeout=10)
-    backend_ready = r.status_code == 200
+    if r.status_code == 200:
+        health_data = r.json()
 except (httpx.ConnectError, httpx.ReadTimeout):
-    backend_ready = False
+    pass
+
+backend_ready = health_data.get("status") == "ok"
 
 # --- Sidebar: topic selector ---
 with st.sidebar:
     if backend_ready:
         st.success("Systems ready")
+    elif health_data.get("status") == "degraded":
+        failed = [k for k, v in health_data.items() if v.startswith("error:")]
+        st.warning(f"Degraded: {', '.join(failed)} unavailable")
     else:
         st.error("Systems not ready")
 
@@ -38,7 +48,7 @@ with st.sidebar:
         pass
     if len(collections) == 0:
         st.info("Upload a document first")
-    selected = st.selectbox("Existing topics", options=collections or ["Sample Topic"])
+    selected = st.selectbox("Existing topics", options=collections or ["AllTopics-Default"])
 
 
 # --- Tabs ---
@@ -68,7 +78,8 @@ with upload_tab:
             )
             st.rerun()
         else:
-            st.error(response.json().get("detail", "Upload failed"))
+            reason = response.json().get("detail", "Unknown error")
+            st.toast(f"Upload failed: {reason}", icon="❌")
 
     # Direct context checkbox — no-op in this slice
     st.divider()
@@ -135,17 +146,25 @@ with topics_tab:
     st.subheader("Topics")
     response = http_client.get(f"{API_URL}/collections")
     if response.status_code == 200:
-        topic_list = [CollectionInfo.model_validate(t) for t in response.json()]
-        for col_info in topic_list:
-            name_col, desc_col, action_col = st.columns([0.2, 0.4, 0.2])
-            name_col.write(col_info.name)
-            desc_col.write(f"Size: {col_info.size} chunks")
-            if action_col.button("Delete", key=f"delete-{col_info.name}"):
-                r = http_client.delete(f"{API_URL}/collections/{col_info.name}")
+        topic_infos = [CollectionInfo.model_validate(t) for t in response.json()]
+        name_col, desc_col, size_col, action_col = st.columns([0.1, 0.5, 0.1, 0.2])
+        # cols labels
+        name_col.write("Name")
+        desc_col.write("Documents")
+        size_col.write("Docs count")
+        action_col.write("Action")
+        for collection_info in topic_infos:
+            name_col.write(collection_info.name)
+            doc_names = "  \n".join([doc.source_name for doc in collection_info.documents])
+            logger.debug(f"Document names for {collection_info.name}: {doc_names}")
+            desc_col.markdown(doc_names)
+            size_col.write(collection_info.doc_count)
+            if action_col.button("Delete", key=f"delete-{collection_info.name}"):
+                r = http_client.delete(f"{API_URL}/collections/{collection_info.name}")
                 if r.status_code == 200:
-                    st.toast(f"Deleted {col_info.name}")
+                    st.toast(f"Deleted {collection_info.name}")
                     st.rerun()
                 else:
-                    st.toast(f"Failed to delete {col_info.name}", icon="❌")
+                    st.toast(f"Failed to delete {collection_info.name}", icon="❌")
     else:
         st.toast("Failed to get collections", icon="❌")

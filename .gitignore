@@ -97,3 +97,6 @@ docker-compose.override.yml
 *.bak
 *.orig
 node_modules/
+
+data/
+

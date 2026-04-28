@@ -53,6 +53,7 @@ class DocRegistry:
         return conn
 
     def _init_db(self) -> None:
+        Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS documents (
@@ -145,6 +146,10 @@ class DocRegistry:
                 )
                 for row in rows
             ]
+
+    def ping(self) -> None:
+        with self._connect() as conn:
+            conn.execute("SELECT 1")
 
     def get_document(self, doc_id: str) -> DocRecord | None:
         with self._connect() as conn:

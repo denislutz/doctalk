@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
+
+_PROJECT_ROOT = Path(__file__).parent.parent
 
 
 class Settings(BaseSettings):
@@ -17,8 +21,8 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-3-haiku-20240307"
 
     embedding_model: str = "all-MiniLM-L6-v2"
-    upload_dir: str = "/app/uploads"
-    registry_db_path: str = "/app/data/registry.db"  # SQLite file for the document registry
+    upload_dir: str = str(_PROJECT_ROOT / "data" / "uploads")
+    registry_db_path: str = str(_PROJECT_ROOT / "data" / "registry.db")
 
     max_chunk_size: int = 512
     chunk_overlap: int = 50

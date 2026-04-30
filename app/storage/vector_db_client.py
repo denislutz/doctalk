@@ -1,10 +1,15 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any, Protocol
 from uuid import uuid4
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, PointStruct, VectorParams
 
-from app.ingestion.loader_pdf import DocumentChunk
+
+class Chunkable(Protocol):
+    content: str
+    metadata: Any
 
 
 @dataclass
@@ -41,7 +46,7 @@ class VectorDB:
     def upsert_chunks(
         self,
         collection: str,
-        chunks: list[DocumentChunk],
+        chunks: Sequence[Chunkable],
         embeddings: list[list[float]],
     ) -> None:
         points = []
@@ -59,7 +64,6 @@ class VectorDB:
         top_k: int = 5,
     ) -> list[tuple[dict[str, object], float]]:
         response = self.client.query_points(collection_name=collection, query=vector, limit=top_k)
-        # convert loads to dicts
         return [(point.payload or {}, point.score) for point in response.points]
 
     def list_collections(self) -> list[str]:

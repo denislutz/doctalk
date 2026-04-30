@@ -21,6 +21,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import uuid4
 
 
 @dataclass
@@ -97,14 +98,14 @@ class DocRegistry:
     def insert_document(
         self,
         *,
-        doc_id: str,
         topic: str,
         source_name: str,
         filename: str,
         format: str,
         file_hash: str,
         chunk_count: int,
-    ) -> None:
+    ) -> str:
+        doc_id = str(uuid4())
         ingested_at = datetime.now(UTC).isoformat()
         with self._connect() as conn:
             conn.execute(
@@ -114,6 +115,7 @@ class DocRegistry:
                 (doc_id, topic, source_name, filename, format, file_hash, chunk_count, ingested_at),
             )
             conn.commit()
+        return doc_id
 
     def delete_document(self, doc_id: str) -> None:
         with self._connect() as conn:

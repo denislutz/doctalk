@@ -27,74 +27,106 @@ except (httpx.ConnectError, httpx.ReadTimeout):
 
 backend_ready = health_data.get("status") == "ok"
 
-# --- Sidebar: topic selector ---
+# --- Fetch collections once ---
+collections_full: list[CollectionInfo] = []
+try:
+    response = http_client.get(f"{API_URL}/collections")
+    if response.status_code == 200:
+        collections_full = [CollectionInfo.model_validate(c) for c in response.json()]
+except (httpx.ConnectError, httpx.ReadTimeout):
+    pass
+
+collection_names = [c.name for c in collections_full]
+
+# --- Sidebar ---
 with st.sidebar:
     if backend_ready:
         st.success("Systems ready")
     elif health_data.get("status") == "degraded":
-        failed = [k for k, v in health_data.items() if v.startswith("error:")]
-        st.warning(f"Degraded: {', '.join(failed)} unavailable")
+        degraded_keys = [k for k, v in health_data.items() if v.startswith("error:")]
+        st.warning(f"Degraded: {', '.join(degraded_keys)} unavailable")
     else:
         st.error("Systems not ready")
 
-    st.header("Current Topic")
-    collections = []
-    try:
-        response = http_client.get(f"{API_URL}/collections")
-        if response.status_code == 200:
-            collections_full = [CollectionInfo.model_validate(c) for c in response.json()]
-            collections = [c.name for c in collections_full]
-    except (httpx.ConnectError, httpx.ReadTimeout):
-        pass
-    if len(collections) == 0:
+    st.header("Topic")
+    if not collection_names:
         st.info("Upload a document first")
-    selected = st.selectbox("Existing topics", options=collections or ["AllTopics-Default"])
+    selected = st.selectbox("Select topic", options=collection_names or ["AllTopics-Default"])
 
+    # --- Documents in selected topic ---
+    selected_collection = next((c for c in collections_full if c.name == selected), None)
+    if selected_collection and selected_collection.documents:
+        st.divider()
+        st.subheader("Documents")
+        for doc in selected_collection.documents:
+            st.markdown(f"- {doc.source_name}")
+
+    # --- Delete topic at the bottom ---
+    if selected_collection:
+        st.divider()
+        if st.button("Delete topic", type="secondary", use_container_width=True):
+            r = http_client.delete(f"{API_URL}/collections/{selected_collection.name}")
+            if r.status_code == 200:
+                st.toast(f"Deleted {selected_collection.name}")
+                st.rerun()
+            else:
+                st.toast(f"Failed to delete {selected_collection.name}", icon="❌")
+
+# resolve topic for upload tab
+topic = selected if selected else ""
 
 # --- Tabs ---
-upload_tab, query_tab, topics_tab = st.tabs(["Upload", "Query", "Topics"])
+upload_tab, query_tab = st.tabs(["Upload", "Query"])
 
 
 with upload_tab:
     st.subheader("Upload a document")
 
-    uploaded_file = st.file_uploader("Choose a PDF", type=["pdf"])
-    new_topic = st.text_input(
-        f"Name your new topic for the files to be associated with, or leave blank to use the current topic '{selected}'."
+    uploaded_files = st.file_uploader(
+        "Choose files", type=["pdf", "docx", "txt", "md", "epub"], accept_multiple_files=True
     )
-    source_name = st.text_input("Original source name (optional)", value="")
+    new_topic = st.text_input(f"New topic name, or leave blank to use '{selected}'.")
+    source_name = st.text_input("Original source name (optional, applies to all files)", value="")
     topic = new_topic.strip() if new_topic.strip() else selected
 
-    if st.button("Upload", disabled=uploaded_file is None or not topic):
-        assert uploaded_file is not None
-        response = http_client.post(
-            f"{API_URL}/upload/{topic}",
-            files={"file": (uploaded_file.name, uploaded_file.getvalue(), "application/pdf")},
-            data={"source_name": source_name},
-        )
-        if response.status_code == 200:
-            st.success(
-                f"Uploaded {response.json().get('doc_id')} — {response.json().get('chunk_count')} chunks indexed"
-            )
+    if st.button("Upload", disabled=not uploaded_files or not topic):
+        failed = []
+        for uploaded_file in uploaded_files:
+            try:
+                response = http_client.post(
+                    f"{API_URL}/upload/{topic}",
+                    files={
+                        "file": (
+                            uploaded_file.name,
+                            uploaded_file.getvalue(),
+                            "application/octet-stream",
+                        )
+                    },
+                    data={"source_name": source_name},
+                )
+                if response.status_code == 200:
+                    st.success(
+                        f"{uploaded_file.name} — {response.json().get('chunk_count')} chunks indexed"
+                    )
+                else:
+                    reason = response.json().get("detail", "Unknown error")
+                    failed.append(uploaded_file.name)
+                    st.toast(f"{uploaded_file.name}: {reason}", icon="❌")
+            except Exception as e:
+                failed.append(uploaded_file.name)
+                st.toast(f"{uploaded_file.name}: {e}", icon="❌")
+        if not failed:
             st.rerun()
-        else:
-            reason = response.json().get("detail", "Unknown error")
-            st.toast(f"Upload failed: {reason}", icon="❌")
 
     # Direct context checkbox — no-op in this slice
     st.divider()
-    use_direct_context = st.checkbox(
-        "Direct context, no RAG (files up to 5 MB)",
-        disabled=True,
-    )
+    st.checkbox("Direct context, no RAG (files up to 5 MB)", disabled=True)
     st.caption("Coming soon — not wired in this slice.")
 
 with query_tab:
-    # Reset it when the topic changes so history doesn't bleed across collections.
     if "chat_history" not in st.session_state:
         st.session_state["chat_history"] = []
 
-    # Render prior turns here before the input so the user sees the thread.
     for chat_msg in st.session_state["chat_history"]:
         with st.chat_message(chat_msg.role):
             st.markdown(chat_msg.content)
@@ -120,7 +152,6 @@ with query_tab:
         if response.status_code == 200:
             data = QueryResponse.model_validate(response.json())
 
-            # Append the new turn so follow-ups include it. Cap length if context gets too long.
             st.session_state["chat_history"].append(ChatMessage(role="user", content=question))
             st.session_state["chat_history"].append(
                 ChatMessage(role="assistant", content=data.answer)
@@ -139,32 +170,3 @@ with query_tab:
         else:
             error_detail = response.json().get("detail", "Query failed")
             st.toast(error_detail, icon="❌")
-
-    # Add a "Clear conversation" button here.
-
-with topics_tab:
-    st.subheader("Topics")
-    response = http_client.get(f"{API_URL}/collections")
-    if response.status_code == 200:
-        topic_infos = [CollectionInfo.model_validate(t) for t in response.json()]
-        name_col, desc_col, size_col, action_col = st.columns([0.1, 0.5, 0.1, 0.2])
-        # cols labels
-        name_col.write("Name")
-        desc_col.write("Documents")
-        size_col.write("Docs count")
-        action_col.write("Action")
-        for collection_info in topic_infos:
-            name_col.write(collection_info.name)
-            doc_names = "  \n".join([doc.source_name for doc in collection_info.documents])
-            logger.debug(f"Document names for {collection_info.name}: {doc_names}")
-            desc_col.markdown(doc_names)
-            size_col.write(collection_info.doc_count)
-            if action_col.button("Delete", key=f"delete-{collection_info.name}"):
-                r = http_client.delete(f"{API_URL}/collections/{collection_info.name}")
-                if r.status_code == 200:
-                    st.toast(f"Deleted {collection_info.name}")
-                    st.rerun()
-                else:
-                    st.toast(f"Failed to delete {collection_info.name}", icon="❌")
-    else:
-        st.toast("Failed to get collections", icon="❌")

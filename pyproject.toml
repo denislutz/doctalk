@@ -21,6 +21,8 @@ dependencies = [
     "PyMuPDF>=1.24",
     "markdown>=3.6",
     "pandas>=2.2",
+    "ebooklib>=0.18",
+    "beautifulsoup4>=4.12",
     # RAG / AI
     "langchain>=0.2",
     "langchain-community>=0.2",

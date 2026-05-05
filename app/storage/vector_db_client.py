@@ -39,7 +39,9 @@ class VectorDB:
             self.client.create_collection(
                 collection_name=name,
                 vectors_config={"dense": VectorParams(size=vector_size, distance=Distance.COSINE)},
-                sparse_vectors_config={"sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))},
+                sparse_vectors_config={
+                    "sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))
+                },
             )
             print(f"Collection created! {name}")
 
@@ -65,7 +67,10 @@ class VectorDB:
             vectors: dict[str, Any] = {"dense": embedding}
             if sparse_embeddings is not None:
                 sparse = sparse_embeddings[i]
-                vectors["sparse"] = {"indices": list(sparse.keys()), "values": list(sparse.values())}
+                vectors["sparse"] = {
+                    "indices": list(sparse.keys()),
+                    "values": list(sparse.values()),
+                }
             point = PointStruct(id=uuid4(), vector=vectors, payload=payload)
             points.append(point)
         self.client.upsert(collection_name=collection, points=points)

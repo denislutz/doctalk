@@ -27,6 +27,7 @@ def _validate_topics(topics: list[str] | None) -> str:
 def _to_source_chunks(chunks: list[RetrievedChunk]) -> list[SourceChunk]:
     return [
         SourceChunk(
+            source_name=chunk.source_name,
             format=chunk.format,
             page_number=chunk.page,
             section_header=chunk.section_header,

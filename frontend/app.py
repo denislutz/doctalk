@@ -1,6 +1,7 @@
 import logging
 import os
 import pathlib
+import traceback
 
 import httpx
 import streamlit as st
@@ -17,6 +18,17 @@ setup_logging(
 logger = logging.getLogger(__name__)
 logger.info("Frontend started")
 
+
+def _show_error(message: str, detail: str | None = None) -> None:
+    st.error(message)
+    if detail:
+        with st.expander("Technical details"):
+            st.code(detail, language=None)
+
+
+_is_local = any(h in API_URL for h in ("localhost", "127.0.0.1"))
+_startup_timeout = 60.0 if _is_local else 10.0
+
 http_client = httpx.Client(timeout=120.0)
 
 
@@ -27,11 +39,11 @@ st.caption("Self-hosted RAG — talk to your data!")
 # --- Health check ---
 health_data: dict[str, str] = {}
 try:
-    r = http_client.get(f"{API_URL}/health", timeout=10)
+    r = http_client.get(f"{API_URL}/health", timeout=_startup_timeout)
     if r.status_code == 200:
         health_data = r.json()
-except (httpx.ConnectError, httpx.ReadTimeout):
-    pass
+except (httpx.ConnectError, httpx.ReadTimeout) as e:
+    logger.error("Health check failed: %s", e)
 
 backend_ready = health_data.get("status") == "ok"
 
@@ -56,6 +68,20 @@ with st.sidebar:
     else:
         st.error("Systems not ready")
 
+    with st.expander("🧪 Error testing"):
+        if st.button("Throw backend error", use_container_width=True):
+            try:
+                r = http_client.get(f"{API_URL}/debug/error")
+                _show_error("Backend error triggered.", r.text)
+            except Exception as e:
+                _show_error("Could not reach backend.", str(e))
+        if st.button("Throw frontend error", use_container_width=True):
+            try:
+                raise RuntimeError("Intentional test error from the frontend")
+            except Exception as e:
+                logger.exception("Unhandled frontend exception: %s", e)
+                _show_error("Frontend error triggered.", traceback.format_exc())
+
     st.header("Topic")
     if not collection_names:
         st.info("Upload a document first")
@@ -78,7 +104,10 @@ with st.sidebar:
                 st.toast(f"Deleted {selected_collection.name}")
                 st.rerun()
             else:
-                st.toast(f"Failed to delete {selected_collection.name}", icon="❌")
+                _show_error(
+                    f"Could not delete topic '{selected_collection.name}'.",
+                    r.text,
+                )
 
 # resolve topic for upload tab
 topic = selected if selected else ""
@@ -130,9 +159,8 @@ with query_tab:
             )
             st.rerun()
         else:
-            logger.error(f"Query failed: {response.json()}")
-            error_detail = response.json().get("detail", "Query failed")
-            st.toast(error_detail, icon="❌")
+            logger.error("Query failed: %s", response.text)
+            _show_error("Something went wrong while answering your question.", response.text)
 
 
 with upload_tab:
@@ -170,12 +198,14 @@ with upload_tab:
                             f"{uploaded_file.name} — {body.get('chunk_count')} chunks indexed"
                         )
                 else:
-                    reason = response.json().get("detail", "Unknown error")
                     failed.append(uploaded_file.name)
-                    st.toast(f"{uploaded_file.name}: {reason}", icon="❌")
+                    _show_error(
+                        f"Failed to upload '{uploaded_file.name}'.",
+                        response.text,
+                    )
             except Exception as e:
                 failed.append(uploaded_file.name)
-                st.toast(f"{uploaded_file.name}: {e}", icon="❌")
+                _show_error(f"Failed to upload '{uploaded_file.name}'.", str(e))
         if not failed:
             st.rerun()
 

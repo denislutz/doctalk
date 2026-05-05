@@ -1,4 +1,4 @@
-import ollama
+import httpx
 from fastapi import APIRouter, Request
 
 from app.storage.doc_registry import DocRegistry
@@ -19,12 +19,13 @@ async def health(request: Request) -> dict[str, str]:
         result["qdrant"] = f"error: {e}"
         result["status"] = "degraded"
 
-    ollama_client: ollama.AsyncClient = request.app.state.chat_model.client
+    llm = request.app.state.langchain_llm
     try:
-        await ollama_client.list()
-        result["ollama"] = "ok"
+        async with httpx.AsyncClient() as client:
+            await client.get(llm.base_url, timeout=3.0)
+        result["llm"] = "ok"
     except Exception as e:
-        result["ollama"] = f"error: {e}"
+        result["llm"] = f"error: {e}"
         result["status"] = "degraded"
 
     registry: DocRegistry = request.app.state.doc_registry

@@ -29,6 +29,15 @@ class QueryRequest(BaseModel):
     history: list[ChatMessage] = []
 
 
+class RetrievedChunk(BaseModel):
+    content: str
+    source_name: str
+    format: str
+    page: int | None = None
+    section_header: str | None = None
+    score: float
+
+
 class SourceChunk(BaseModel):
     source_name: str
     format: str

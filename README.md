@@ -82,6 +82,13 @@ mise run update           # Upgrade all deps + regenerate lockfile
 mise run show-tree        # Show dependency tree
 ```
 
+## Design & Architecture
+
+- [spec/doctalk-tech-plan.md](spec/doctalk-tech-plan.md) — full technical specification, pipeline design, data model, and build status
+- [spec/langchain-integration-plan.md](spec/langchain-integration-plan.md) — LangChain LCEL chain, hybrid search, and reranking design
+
+---
+
 ## Full Docker Stack
 
 To run everything in Docker (including the app):

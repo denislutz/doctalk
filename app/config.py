@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     vector_db_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None
 
-    ollama_url: str = "http://localhost:11434"
+    langchain_llm_url: str = "http://localhost:11434"
     default_llm_provider: str = "ollama"
     default_llm_model: str = "llama3.2:3b"
 
@@ -29,8 +29,9 @@ class Settings(BaseSettings):
     min_chunk_size: int = 50
     csv_rows_per_chunk: int = 25
 
-    dense_top_k: int = 20
-    sparse_top_k: int = 20
+    search_top_k: int = 20
+
+    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     rerank_top_k: int = 5
     use_reranking: bool = True
 

@@ -33,5 +33,7 @@ async def upload_document(
 @router.delete("/{topic}")
 async def delete_topic(request: Request, topic: str) -> dict[str, str]:
     vector_db_client: VectorDB = request.app.state.vector_db_client
+    registry: DocRegistry = request.app.state.doc_registry
     vector_db_client.delete_collection(topic)
+    registry.delete_topic(topic)
     return {"topic": topic}

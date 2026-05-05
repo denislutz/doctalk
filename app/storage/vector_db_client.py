@@ -4,7 +4,14 @@ from typing import Any, Protocol
 from uuid import uuid4
 
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance,
+    PointStruct,
+    SparseIndexParams,
+    SparseVector,
+    SparseVectorParams,
+    VectorParams,
+)
 
 
 class Chunkable(Protocol):
@@ -31,7 +38,8 @@ class VectorDB:
         if not self.is_present_collection(name):
             self.client.create_collection(
                 collection_name=name,
-                vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+                vectors_config={"dense": VectorParams(size=vector_size, distance=Distance.COSINE)},
+                sparse_vectors_config={"sparse": SparseVectorParams(index=SparseIndexParams(on_disk=False))},
             )
             print(f"Collection created! {name}")
 
@@ -47,23 +55,45 @@ class VectorDB:
         self,
         collection: str,
         chunks: Sequence[Chunkable],
-        embeddings: list[list[float]],
+        dense_embeddings: list[list[float]],
+        sparse_embeddings: list[dict[int, float]] | None = None,
     ) -> None:
         points = []
-        for chunk, embedding in zip(chunks, embeddings, strict=True):
+        for i, (chunk, embedding) in enumerate(zip(chunks, dense_embeddings, strict=True)):
             payload: dict[str, object] = {"content": chunk.content}
             payload.update(chunk.metadata)
-            point = PointStruct(id=uuid4(), vector=embedding, payload=payload)
+            vectors: dict[str, Any] = {"dense": embedding}
+            if sparse_embeddings is not None:
+                sparse = sparse_embeddings[i]
+                vectors["sparse"] = {"indices": list(sparse.keys()), "values": list(sparse.values())}
+            point = PointStruct(id=uuid4(), vector=vectors, payload=payload)
             points.append(point)
         self.client.upsert(collection_name=collection, points=points)
 
-    def search(
+    def search_dense(
         self,
         collection: str,
         vector: list[float],
         top_k: int = 5,
     ) -> list[tuple[dict[str, object], float]]:
-        response = self.client.query_points(collection_name=collection, query=vector, limit=top_k)
+        response = self.client.query_points(
+            collection_name=collection, query=vector, using="dense", limit=top_k
+        )
+        return [(point.payload or {}, point.score) for point in response.points]
+
+    def search_sparse(
+        self,
+        collection: str,
+        sparse_vector: dict[int, float],
+        top_k: int = 5,
+    ) -> list[tuple[dict[str, object], float]]:
+        query = SparseVector(
+            indices=list(sparse_vector.keys()),
+            values=list(sparse_vector.values()),
+        )
+        response = self.client.query_points(
+            collection_name=collection, query=query, using="sparse", limit=top_k
+        )
         return [(point.payload or {}, point.score) for point in response.points]
 
     def list_collections(self) -> list[str]:

@@ -1,126 +1,91 @@
+import asyncio
 import logging
 import time
-from typing import Any
 
-from doctalk_shared.models import ChatMessage, QueryRequest, QueryResponse, SourceChunk
+from doctalk_shared.models import QueryRequest, QueryResponse, RetrievedChunk, SourceChunk
 from fastapi import APIRouter, HTTPException, Request
+from langchain_core.language_models import BaseChatModel
 
-from app.ingestion.embedder import Embedder
-from app.llm.ollama_client import OllamaClient
+from app.retrieval.chain import generate_answer
+from app.retrieval.search_service import (
+    reciprocal_rank_fusion,
+    search_collection_dense,
+    search_collection_sparse,
+)
 from app.storage.vector_db_client import VectorDB
 
 router = APIRouter(prefix="/query", tags=["query"])
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """
-You are a helpful assistant that answers questions based on the provided context.
-You must always cite your sources using the format [Source: filename, page number].
-If you cannot find an answer in the context, say "I couldn't find this information in the provided documents."
-"""
-USER_PROMPT = """
-Context:
-{formatted_chunks}
-
-Question:
-{user_question}
-"""
-
-MINIMAL_SCORE = 0.3
-
 
 def _validate_topics(topics: list[str] | None) -> str:
     if not topics or not topics[0].strip() or len(topics) > 1:
         raise HTTPException(status_code=400, detail="Topic is invalid.")
-
     return topics[0]
 
 
-def _embed_question(request: Request, question: str) -> list[float]:
-    embedder: Embedder = request.app.state.embedder
-    embeddings = embedder.embed([question])
-    return embeddings[0]
-
-
-def _retrieve(
-    *, request: Request, topic: str, question_embeddings: list[float], top_k: int
-) -> list[tuple[dict[str, Any], float]]:
-    vector_db: VectorDB = request.app.state.vector_db_client
-    if not vector_db.is_present_collection(topic):
-        raise HTTPException(
-            status_code=404,
-            detail=f"Topic '{topic}' not found, pls create a topic first and upload some docs to start asking questions.",
+def _to_source_chunks(chunks: list[RetrievedChunk]) -> list[SourceChunk]:
+    return [
+        SourceChunk(
+            format=chunk.format,
+            page_number=chunk.page,
+            section_header=chunk.section_header,
+            content_snippet=chunk.content[:500],
+            relevance_score=chunk.score,
         )
-    return vector_db.search(collection=topic, vector=question_embeddings, top_k=top_k)
-
-
-def _build_prompt(question: str, hits: list[tuple[dict[str, Any], float]]) -> tuple[str, str]:
-    formatted_chunks = ""
-
-    for hit in hits:
-        payload, score = hit
-        if score < MINIMAL_SCORE:
-            continue
-        source_name = payload.get("source_name", "")
-        page = payload.get("page", "")
-        content = payload.get("content", "")
-        chunk = f"Source: {source_name}, page: {page}\n{content}\n\n"
-        formatted_chunks += chunk
-    user_message = USER_PROMPT.format(formatted_chunks=formatted_chunks, user_question=question)
-    logger.debug(f"Resulting Prompt | System: {SYSTEM_PROMPT}\n User: {user_message}")
-    return SYSTEM_PROMPT.strip(), user_message.strip()
-
-
-async def _generate_anwser(
-    *, request: Request, system_content: str, user_content: str, history: list[ChatMessage]
-) -> str:
-    chat_model: OllamaClient = request.app.state.chat_model
-    return await chat_model.generate(
-        system_content=system_content, user_content=user_content, history=history
-    )
-
-
-def _to_source_chunks(hits: list[tuple[dict[str, Any], float]]) -> list[SourceChunk]:
-    source_chunks = []
-    for payload, score in hits:
-        ch = SourceChunk(
-            source_name=payload["source_name"],
-            format=payload.get("format", "pdf"),
-            page_number=payload.get("page"),
-            content_snippet=payload["content"][:500],
-            relevance_score=score,
-        )
-        source_chunks.append(ch)
-    return source_chunks
+        for chunk in chunks
+    ]
 
 
 @router.post("")
 async def query(request: Request, body: QueryRequest) -> QueryResponse:
-    topics, question, top_k = body.topics, body.question, body.top_k
-    topic = _validate_topics(topics)
+    topic = _validate_topics(body.topics)
 
-    t0 = time.perf_counter()
-    # transform the question to embeddings
-    question_embeddings = _embed_question(request, question)
+    vector_db: VectorDB = request.app.state.vector_db_client
+    if not vector_db.is_present_collection(topic):
+        raise HTTPException(status_code=404, detail=f"Collection '{topic}' not found")
 
-    # retrieve the most relevant chunks using the question embeddings
-    context_enrichment = _retrieve(
-        request=request,
-        topic=topic,
-        question_embeddings=question_embeddings,
-        top_k=top_k,
+    retrieval_start = time.perf_counter()
+    dense_chunks, sparse_chunks = await asyncio.gather(
+        search_collection_dense(
+            question=body.question,
+            collection=topic,
+            embedder=request.app.state.embedder,
+            vector_db=vector_db,
+        ),
+        search_collection_sparse(
+            question=body.question,
+            collection=topic,
+            embedder=request.app.state.embedder,
+            vector_db=vector_db,
+        ),
     )
-    retrieval_ms = (time.perf_counter() - t0) * 1000
-    system, user = _build_prompt(question, context_enrichment)
+    # now merge the results using RRF
+    fused_chunks = reciprocal_rank_fusion(dense_results=dense_chunks, sparse_results=sparse_chunks)
 
-    t1 = time.perf_counter()
-    answer = await _generate_anwser(
-        request=request, system_content=system, user_content=user, history=body.history
-    )
-    generation_ms = (time.perf_counter() - t1) * 1000
+    ranked_chunks = request.app.state.reranker.rerank(body.question, fused_chunks, top_k=body.top_k)
+
+    unranked_format = [
+        {"content": chunk.content[:100], "source": chunk.source_name, "score": chunk.score}
+        for chunk in fused_chunks
+    ]
+
+    ranked_format = [
+        {"content": chunk.content[:100], "source": chunk.source_name, "score": chunk.score}
+        for chunk in ranked_chunks
+    ]
+    logger.debug(f"Unranked chunks: {unranked_format} for {body.question}")
+    logger.debug(f"Reranked chunks: {ranked_format} for {body.question}")
+    retrieval_ms = (time.perf_counter() - retrieval_start) * 1000
+
+    generation_start = time.perf_counter()
+    llm: BaseChatModel = request.app.state.langchain_llm
+    answer = await generate_answer(body.question, ranked_chunks, llm, history=body.history)
+    generation_ms = (time.perf_counter() - generation_start) * 1000
 
     return QueryResponse(
         answer=answer,
-        sources=_to_source_chunks(context_enrichment),
+        sources=_to_source_chunks(ranked_chunks),
         tokens_used=0,
         retrieval_time_ms=retrieval_ms,
         generation_time_ms=generation_ms,

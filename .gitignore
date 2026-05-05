@@ -74,12 +74,14 @@ sample_data/*
 
 # Qdrant data (if running locally without Docker)
 qdrant_storage/
+.qdrant-initialized
 
 # Ollama models (if downloaded locally)
 .ollama/
 
 # Logs
-logs/
+logs/*
+!logs/.gitkeep
 *.log
 
 # Evaluation outputs
@@ -99,4 +101,5 @@ docker-compose.override.yml
 node_modules/
 
 data/
+/storage/
 

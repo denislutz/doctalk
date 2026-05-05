@@ -29,7 +29,7 @@ class IngestionService:
 
         file_hash = self.registry.compute_hash(contents)
         if self.registry.is_duplicate(file_hash, topic):
-            raise Exception("Document already indexed in this topic")
+            return {"skipped": True, "reason": "already indexed in this topic"}
 
         content_type = file.filename.split(".")[-1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=f".{content_type}") as temp_file:
@@ -50,10 +50,17 @@ class IngestionService:
 
         os.unlink(path)
 
-        embeddings = self.embedder.embed([chunk.content for chunk in chunks])
+        chunked_texts = [chunk.content for chunk in chunks]
+        dense_embeddings = self.embedder.embed_dense(chunked_texts)
+        sparse_embeddings = self.embedder.embed_sparse(chunked_texts)
 
         self.vector_db_client.ensure_collection(name=topic)
-        self.vector_db_client.upsert_chunks(collection=topic, chunks=chunks, embeddings=embeddings)
+        self.vector_db_client.upsert_chunks(
+            collection=topic,
+            chunks=chunks,
+            dense_embeddings=dense_embeddings,
+            sparse_embeddings=sparse_embeddings,
+        )
 
         doc_id = self.registry.insert_document(
             topic=topic,

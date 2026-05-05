@@ -1,7 +1,6 @@
 [tools]
 python = "3.11"
 uv = "latest"
-docker-compose = "latest"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
@@ -26,26 +25,26 @@ TOP_K = "5"
 RERANK_TOP_K = "10"
 USE_RERANKING = "true"
 
+[tasks.install]
+description = "Install missing Python dependencies from pyproject.toml"
+run = "uv sync"
+
 [tasks.setup]
-description = "Initial project setup - install deps, start infra, pull LLM model"
-run = """
-uv sync
-mkdir -p uploads sample_data logs
-docker compose up -d qdrant ollama
-docker compose --profile init up ollama-init
-"""
+description = "Initial project setup - install deps and pull LLM model"
+depends = ["install", "pull-model"]
+run = "mkdir -p uploads sample_data logs"
 
 [tasks.dev]
-description = "Start Qdrant + Ollama in Docker"
-run = "docker compose up -d qdrant ollama"
+description = "Start Qdrant + Ollama locally"
+depends = ["qdrant", "ollama"]
 
 [tasks.pull-model]
-description = "Pull the LLM model into the Ollama container"
-run = "docker compose --profile init up ollama-init"
+description = "Pull the LLM model via Ollama"
+run = "ollama pull $OLLAMA_MODEL"
 
 [tasks.qdrant]
-description = "Start Qdrant in Docker only"
-run = "docker compose up -d qdrant"
+description = "Start local Qdrant server"
+run = "qdrant"
 
 [tasks.ollama]
 description = "Start locally installed Ollama server"
@@ -74,6 +73,27 @@ uv run ruff format .
 uv run ruff check .
 uv run mypy app/
 """
+
+[tasks.dev-check]
+description = "Full dev check: static analysis + ping backend and frontend"
+run = """
+uv run ruff format .
+uv run ruff check .
+uv run mypy app/
+uv run python scripts/ping.py
+"""
+
+[tasks.ping]
+description = "Ping backend health endpoint and frontend to verify both are up"
+run = "uv run python scripts/ping.py"
+
+[tasks.ping-api]
+description = "Ping backend health endpoint only"
+run = "uv run python scripts/ping.py --api-only"
+
+[tasks.ping-frontend]
+description = "Ping frontend only"
+run = "uv run python scripts/ping.py --frontend-only"
 
 [tasks.seed]
 description = "Seed sample data into collections"

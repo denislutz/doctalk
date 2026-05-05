@@ -47,7 +47,7 @@ async def list_collections(request: Request) -> list[CollectionInfo]:
                 doc_count=len(documents),
             )
         )
-    logger.info(f"Available collections: {response_data}")
+    logger.info(f"Available collections: {len(response_data)}")
     return response_data
 
 

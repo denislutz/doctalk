@@ -1,0 +1,32 @@
+# Test environment — isolated Qdrant on port 6335 with its own volume.
+# Never shares data with the dev instance on 6333.
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml up -d
+#   docker compose -f docker-compose.test.yml down -v   # -v wipes the volume
+
+services:
+  qdrant-test:
+    image: qdrant/qdrant:latest
+    container_name: doctalk-qdrant-test
+    ports:
+      - "6335:6333"
+    volumes:
+      - qdrant_test_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__HTTP_PORT=6333
+    restart: "no"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/6333'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  qdrant_test_data:
+    driver: local
+
+networks:
+  default:
+    name: doctalk-test-network

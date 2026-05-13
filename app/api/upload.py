@@ -1,4 +1,6 @@
 import logging
+import tempfile
+from pathlib import Path
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
 
@@ -24,10 +26,25 @@ async def upload_document(
     embedder: Embedder = request.app.state.embedder
     vector_db_client: VectorDB = request.app.state.vector_db_client
 
-    ingestion_service = IngestionService(
-        registry=registry, embedder=embedder, vector_db_client=vector_db_client
-    )
-    return await ingestion_service.ingest(file=file, topic=topic, source_name=source_name)
+    filename = file.filename or "upload"
+    suffix = Path(filename).suffix
+    contents = await file.read()
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(contents)
+        tmp_path = Path(tmp.name)
+
+    try:
+        ingestion_service = IngestionService(
+            registry=registry, embedder=embedder, vector_db_client=vector_db_client
+        )
+        return await ingestion_service.ingest(
+            path=tmp_path,
+            topic=topic,
+            source_name=source_name or filename,
+        )
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 @router.delete("/{topic}")

@@ -7,6 +7,11 @@ from app.storage.vector_db_client import VectorDB
 router = APIRouter()
 
 
+@router.get("/debug/error")
+async def debug_error() -> None:
+    raise RuntimeError("Intentional test error from /debug/error")
+
+
 @router.get("/health")
 async def health(request: Request) -> dict[str, str]:
     result: dict[str, str] = {"status": "ok", "service": "doctalk-api"}

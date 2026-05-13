@@ -4,6 +4,7 @@ uv = "latest"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
+_.file = ".env.local"
 PYTHONPATH = "{{config_root}}/app"
 
 API_HOST = "0.0.0.0"
@@ -62,8 +63,17 @@ run = "uv run streamlit run frontend/app.py"
 description = "Start all services (infra + ollama + api + frontend)"
 depends = ["dev", "api", "frontend"]
 
+[tasks.test-env-up]
+description = "Start isolated test Qdrant on port 6335"
+run = "docker compose -f docker-compose.test.yml up -d --wait"
+
+[tasks.test-env-down]
+description = "Stop and wipe test Qdrant (removes volume)"
+run = "docker compose -f docker-compose.test.yml down -v"
+
 [tasks.test]
-description = "Run all tests"
+description = "Start test env then run all tests (test Qdrant stays up after)"
+depends = ["test-env-up"]
 run = "uv run pytest tests/ -v"
 
 [tasks.check]
@@ -102,3 +112,31 @@ run = "uv run python scripts/seed_demo.py"
 [tasks.eval]
 description = "Run RAGAS evaluation"
 run = "uv run python eval/run_ragas.py"
+
+[tasks.open-qdrant]
+description = "Open Qdrant dashboard in browser"
+run = "open http://localhost:$QDRANT_PORT/dashboard"
+
+[tasks.open-ollama]
+description = "Open Ollama status in browser"
+run = "open http://$OLLAMA_HOST"
+
+[tasks.kill-ollama]
+description = "Kill Ollama serve process"
+run = "pgrep -f 'ollama serve' | xargs kill -9 2>/dev/null && echo 'ollama: killed' || echo 'ollama: not running'"
+
+[tasks.kill-qdrant]
+description = "Kill Qdrant process"
+run = "pgrep -x qdrant | xargs kill -9 2>/dev/null && echo 'qdrant: killed' || echo 'qdrant: not running'"
+
+[tasks.kill-api]
+description = "Kill uvicorn API process (uv wrapper + uvicorn) and free port 8000"
+run = "{ pgrep -f 'uvicorn app.main:app'; lsof -ti :$API_PORT; } | sort -u | xargs kill -9 2>/dev/null && echo 'api: killed' || echo 'api: not running'"
+
+[tasks.kill-frontend]
+description = "Kill Streamlit frontend process (uv wrapper + streamlit)"
+run = "pgrep -f 'streamlit run frontend' | xargs kill -9 2>/dev/null && echo 'frontend: killed' || echo 'frontend: not running'"
+
+[tasks.kill]
+description = "Kill all services (Ollama, Qdrant, API, frontend)"
+depends = ["kill-ollama", "kill-qdrant", "kill-api", "kill-frontend"]

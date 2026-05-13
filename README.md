@@ -89,6 +89,24 @@ mise run show-tree        # Show dependency tree
 
 ---
 
+## Evaluation Results
+
+Evaluated with [RAGAS](https://docs.ragas.io) on a 20-question test set covering two document collections (Austrian Economics, Libertarianism). The pipeline runs hybrid dense+sparse search with RRF fusion and cross-encoder reranking, judged by Mistral 7B locally.
+
+| Metric | Score |
+| --- | --- |
+| Context Precision | **0.971** |
+| Answer Relevancy | **0.860** |
+| Overall | **0.916** |
+
+**Context Precision (0.971)** — retrieved chunks are highly relevant and correctly ranked. The hybrid search + reranking pipeline surfaces the right content.
+
+**Answer Relevancy (0.860)** — answers are on-topic but occasionally verbose; room to improve with tighter generation prompts.
+
+> Run `mise run eval -- --limit 20` to reproduce. See [`eval/run_ragas.py`](eval/run_ragas.py) for the full evaluation script. Results saved to `eval/results/`.
+
+---
+
 ## Full Docker Stack
 
 To run everything in Docker (including the app):

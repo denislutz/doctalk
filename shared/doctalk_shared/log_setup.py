@@ -36,15 +36,9 @@ def setup_logging(
     )
     file_handler.setFormatter(_JsonFormatter())
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(
-        logging.Formatter("%(asctime)s %(levelname)-8s %(name)s: %(message)s")
-    )
-
     root = logging.getLogger()
     root.setLevel(level)
     root.addHandler(file_handler)
-    root.addHandler(console_handler)
 
-    for _noisy in ("httpcore", "httpx", "uvicorn.access"):
+    for _noisy in ("httpcore", "httpx", "python_multipart"):
         logging.getLogger(_noisy).setLevel(logging.WARNING)

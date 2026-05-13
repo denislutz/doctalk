@@ -36,7 +36,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 SYSTEM_PROMPT = """
 You are a helpful assistant that answers questions based on the provided context.
 Always cite your sources using the format [Source: filename, page number].
-Always try to aggregate the answer from several sources with the highest rank as much as possible.
+Synthesize your answer from all relevant context chunks provided.
 If you cannot find an answer in the context, say "I couldn't find this information in the provided documents."
 """.strip()
 

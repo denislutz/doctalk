@@ -1,7 +1,7 @@
 # DocTalk — Technical Specification
 
 **Type:** Self-hosted RAG system  
-**Stack:** Python 3.11 · FastAPI · Qdrant · LangChain · Ollama · Streamlit
+**Stack:** Python 3.12 · FastAPI · Qdrant · LangChain · Ollama · Streamlit
 
 ---
 
@@ -52,7 +52,7 @@ Build a self-hosted, GDPR-compliant RAG application where companies upload docum
 
 | Layer                | Technology                                       | Why                                                             |
 | -------------------- | ------------------------------------------------ | --------------------------------------------------------------- |
-| **Language**         | Python 3.11+                                     | All libraries native, async support                             |
+| **Language**         | Python 3.12+                                     | All libraries native, async support, PEP 695 type syntax        |
 | **API Framework**    | FastAPI + Pydantic                               | Async, typed, auto-docs                                         |
 | **Vector DB**        | Qdrant (local binary)                            | Collection isolation, metadata filtering, sparse vector support |
 | **Embeddings**       | `sentence-transformers/all-MiniLM-L6-v2` (local) | Free, fast, GDPR-compliant                                      |
@@ -172,12 +172,12 @@ User Question
         │       Qdrant cosine similarity
         │       → list[RetrievedChunk]  top_k=20, by cosine score
         │
-        ├─▶ Sparse / BM25 Search  (search_collection_sparse)             🔲
+        ├─▶ Sparse / BM25 Search  (search_collection_sparse)             ✅
         │       question → sparse vector {term: weight}
         │       Qdrant sparse search
         │       → list[RetrievedChunk]  top_k=20, by BM25 score
         │
-        ├─▶ Reciprocal Rank Fusion  (reciprocal_rank_fusion)        🔲
+        ├─▶ Reciprocal Rank Fusion  (reciprocal_rank_fusion)        ✅
         │       score = 1/(60 + rank_dense) + 1/(60 + rank_bm25)
         │       → list[RetrievedChunk]  top_k=10, by RRF score
         │
@@ -191,7 +191,6 @@ User Question
 ```
 
 ### 6.3 Generation Prompt
-
 
 System prompt instructs the model to answer only from provided context chunks, cite sources as `[Source: filename, page/section]`, and return "I couldn't find this in the indexed documents." when context is insufficient.
 
@@ -294,20 +293,19 @@ doctalk/
 | Doc Registry (SQLite duplicate guard + doc list)       | ✅    |
 | EPUB loader (bonus)                                    | ✅    |
 
-### Phase 2: Query Engine (in progress)
+### Phase 2: Query Engine ✅
 
-| Task                                                      | Done   |
-| --------------------------------------------------------- | ------ |
-| LangChain QA chain (LCEL, prompt template, output parser) | ✅      |
-| Conversation memory (history via MessagesPlaceholder)     | ✅      |
-| Dense search wired into pipeline                          | ✅      |
-| Cross-encoder re-ranker                                   | ✅      |
-| Query API endpoint                                        | ✅      |
-| Claude API provider toggle                                | ❌      |
-| BM25 / sparse search                                      | ✅      |
-| Reciprocal Rank Fusion merge                              | ✅      |
+| Task                                                      | Done |
+| --------------------------------------------------------- | ---- |
+| LangChain QA chain (LCEL, prompt template, output parser) | ✅    |
+| Conversation memory (history via MessagesPlaceholder)     | ✅    |
+| Dense search wired into pipeline                          | ✅    |
+| Cross-encoder re-ranker                                   | ✅    |
+| Query API endpoint                                        | ✅    |
+| BM25 / sparse search                                      | ✅    |
+| Reciprocal Rank Fusion merge                              | ✅    |
 
-### Phase 3: UI + Hardening (partial)
+### Phase 3: UI ✅
 
 | Task                                    | Done |
 | --------------------------------------- | ---- |
@@ -315,12 +313,10 @@ doctalk/
 | Streamlit frontend — chat page          | ✅    |
 | Streamlit frontend — collection manager | ✅    |
 | Collection stats endpoint               | ✅    |
-| Document delete endpoint                | ❌    |
-| API key auth middleware                 | ❌    |
-| Sample data seeding script              | ❌    |
-| README with screenshots                 | ❌    |
 
-### Phase 4: Evaluation (not started)
+### Phase 4: AI/Evaluation (next — priority) ← **current focus**
+
+AI-first topics: provider flexibility, evaluation frameworks, observability. These are the highest learning-value items for portfolio positioning.
 
 | Task                                   | Done |
 | -------------------------------------- | ---- |
@@ -328,8 +324,120 @@ doctalk/
 | RAGAS evaluation                       | ❌    |
 | DeepEval integration                   | ❌    |
 | Benchmark script                       | ❌    |
+| Claude API provider toggle             | ❌    |
 | Structured logging (per-request trace) | ❌    |
+
+### Phase 5: Code Style — OOP vs Functional (deferred)
+
+Evaluate which classes justify being classes and which should be plain functions. The key question is whether the object holds expensive-to-initialize state (model weights, DB connections) that must be reused across calls — if yes, the class is justified. If the "class" is just a namespace for one or two stateless functions, convert to module-level functions.
+
+| Class              | Holds shared state?                               | Verdict                                                              | Done |
+| ------------------ | ------------------------------------------------- | -------------------------------------------------------------------- | ---- |
+| `Reranker`         | Yes — `CrossEncoder` model loaded once at startup | Keep as class; loading per-call would add ~1–2s latency every query  | ❌    |
+| `Embedder`         | Yes — `SentenceTransformer` + sparse model        | Keep as class for same reason                                        | ❌    |
+| `VectorDB`         | Yes — Qdrant client + connection                  | Keep as class                                                        | ❌    |
+| `DocRegistry`      | Yes — SQLite connection                           | Keep as class                                                        | ❌    |
+| `IngestionService` | No own state — wraps injected collaborators       | Consider converting to module-level functions                        | ❌    |
+| `search_service`   | Already module-level functions                    | ✅ Already functional                                                | ✅    |
+| `chain.py`         | Already module-level functions                    | ✅ Already functional                                                | ✅    |
+
+**Rule of thumb:** a class is justified when construction cost (model load, connection open) must be paid once and the instance reused. A single-method class with no expensive constructor is just a function with extra syntax.
+
+---
+
+### Phase 6: Hardening + Polish (deferred)
+
+Infrastructure and presentation work — do after evaluation is solid.
+
+| Task                                   | Done |
+| -------------------------------------- | ---- |
+| Python 3.12 upgrade                    | ❌    |
+| Document delete endpoint               | ❌    |
+| API key auth middleware                | ❌    |
+| Sample data seeding script             | ❌    |
 | Docker optimization                    | ❌    |
+| README with screenshots                | ❌    |
+
+#### Python 3.12 Upgrade
+
+**Goal:** Adopt PEP 695 type syntax (`type`, `[T]` generics) across the codebase for cleaner, more expressive type annotations.
+
+**Why PEP 695 matters for this project:**
+
+| Feature | Old way (3.11) | New way (3.12) |
+| --- | --- | --- |
+| Type alias | `Sample: TypeAlias = dict[str, object]` | `type Sample = dict[str, object]` |
+| Generic function | `def first(xs: list[T]) -> T` + `TypeVar("T")` | `def first[T](xs: list[T]) -> T` |
+| Generic class | `class Stack(Generic[T])` + `TypeVar("T")` | `class Stack[T]` |
+| Recursive alias | Impossible without `from __future__` | `type Tree[T] = T \| list[Tree[T]]` |
+
+PEP 695 aliases are **lazily evaluated** (right-hand side not resolved at import time), which eliminates forward-reference `"string"` hacks and makes recursive types possible without `from __future__ import annotations`.
+
+**Migration steps:**
+
+1. **Install Python 3.12**
+
+   ```bash
+   uv python install 3.12
+   ```
+
+2. **Update `pyproject.toml`**
+
+   ```toml
+   requires-python = "==3.12.*"
+   ```
+
+   And in `[tool.mypy]`:
+
+   ```toml
+   python_version = "3.12"
+   ```
+
+3. **Re-pin the lockfile**
+
+   ```bash
+   uv sync
+   ```
+
+4. **Migrate type aliases** — search for `TypeAlias` imports and plain assignments used as aliases:
+
+   ```python
+   # before
+   from typing import TypeAlias
+   Sample: TypeAlias = dict[str, object]
+
+   # after
+   type Sample = dict[str, object]
+   ```
+
+5. **Migrate generic functions** — replace `TypeVar` boilerplate:
+
+   ```python
+   # before
+   T = TypeVar("T")
+   def first(xs: list[T]) -> T: ...
+
+   # after
+   def first[T](xs: list[T]) -> T: ...
+   ```
+
+6. **Migrate generic classes** — replace `Generic[T]` base:
+
+   ```python
+   # before
+   class Repository(Generic[T]): ...
+
+   # after
+   class Repository[T]: ...
+   ```
+
+7. **Run typecheck and tests** to confirm no regressions:
+
+   ```bash
+   mise run dev-check
+   ```
+
+**Files most likely to change:** `eval/run_ragas.py`, `shared/doctalk_shared/models.py`, any utility with `TypeVar`.
 
 ---
 
@@ -380,13 +488,13 @@ Deep integration tests that hit real services (SQLite doc registry, Qdrant) with
 
 ### Stack
 
-| Tool            | Role                                                      |
-| --------------- | --------------------------------------------------------- |
-| `pytest`        | Test runner, fixture system                               |
+| Tool            | Role                                                         |
+| --------------- | ------------------------------------------------------------ |
+| `pytest`        | Test runner, fixture system                                  |
 | `factory-boy`   | SQLAlchemy model factories (equivalent to Ruby's FactoryBot) |
-| `httpx`         | Async FastAPI test client                                 |
-| Qdrant (local)  | Real vector DB — test collections created/torn down per run |
-| SQLite (in-mem) | Real doc registry — rolled back after each test           |
+| `httpx`         | Async FastAPI test client                                    |
+| Qdrant (local)  | Real vector DB — test collections created/torn down per run  |
+| SQLite (in-mem) | Real doc registry — rolled back after each test              |
 
 ### Structure
 

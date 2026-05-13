@@ -1,0 +1,122 @@
+[
+  {
+    "question": "Who founded Austrian Economics and when?",
+    "ground_truth": "Austrian Economics was founded by Carl Menger, who wrote Principles of Economics in 1871. His ideas were later built upon by Ludwig von Mises, Murray Rothbard, and others.",
+    "topics": ["austrian_economics"],
+    "notes": "Simple factual recall. Source: livingwealth.com, billywiz66.substack.com"
+  },
+  {
+    "question": "What is the Austrian School's view on government intervention in the economy?",
+    "ground_truth": "Austrian economists believe markets are efficient and self-regulating, and that government intervention distorts economic signals and disrupts the production and supply cycle. They argue for minimal government oversight and believe recessions are natural, necessary corrections to fix imbalances — not failures requiring policy responses.",
+    "topics": ["austrian_economics"],
+    "notes": "Tests retrieval across all three sources. Source: livingwealth.com, magellanplanning.com, billywiz66.substack.com"
+  },
+  {
+    "question": "How do Austrian and Keynesian economists differ in their views on inflation and deflation?",
+    "ground_truth": "Austrian economists view inflation negatively because it reduces the portion of money available for investment, and view deflation positively as it lowers prices and encourages investment. Keynesians take the opposite view: they see steady inflation as beneficial because it encourages borrowing and spending, and consider deflation harmful because it delays spending and economic growth.",
+    "topics": ["austrian_economics"],
+    "notes": "Tests multi-concept retrieval. Source: livingwealth.com, magellanplanning.com"
+  },
+  {
+    "question": "What is 'sound money' and which school of economics advocates for it?",
+    "ground_truth": "Sound money is a currency backed by a hard asset such as gold, which limits the money supply because money can only be created if converted into an asset. Austrian economists advocate for sound money, in contrast to Keynesians who prefer fiat currency — money not backed by any asset — which allows governments to expand the money supply freely.",
+    "topics": ["austrian_economics"],
+    "notes": "Tests precise concept retrieval. Source: livingwealth.com, magellanplanning.com, billywiz66.substack.com"
+  },
+  {
+    "question": "What is the Austrian Business Cycle Theory and what causes booms and busts according to it?",
+    "ground_truth": "The Austrian Business Cycle Theory (ABCT), developed by Ludwig von Mises, holds that business cycles are caused by artificial credit expansion — particularly when central banks lower interest rates below the natural free-market rate. This misleads entrepreneurs, distorts price signals, and leads to malinvestment. The boom eventually collapses as the unsustainable investments unwind, producing a bust. Von Mises warned: 'The inevitable outcome of credit expansion is the breakdown of the boom and the appearance of the crisis.'",
+    "topics": ["austrian_economics"],
+    "notes": "Tests retrieval of a specific theory with a supporting quote. Source: billywiz66.substack.com"
+  },
+  {
+    "question": "What is a network state and how does it differ from a micronation?",
+    "ground_truth": "A network state is a community that forms first online, builds a culture digitally, then crowdfunds physical territory around the world — connecting dispersed enclaves into a fractal polity with its capital in the cloud. It differs from a micronation in scale and ambition: micronations are dismissed because too few people care, while a network state is designed to be a scaled shared endeavor practiced by millions, eventually seeking diplomatic recognition from existing states.",
+    "topics": ["libertarianism"],
+    "notes": "Tests core concept retrieval and contrast. Source: libertarianism_network_state.md"
+  },
+  {
+    "question": "What are the seven methods to start a new country described in The Network State?",
+    "ground_truth": "The seven methods are: (1) Election, (2) Revolution, (3) War, (4) Micronations, (5) Seasteading, (6) Space colonization, and (7) Network States. The first three are conventional; the next three are unconventional but flawed. The network state is presented as the preferred path — cloud first, land last — because it straddles practicality and impracticality using existing internet technology rather than requiring new physical innovations.",
+    "topics": ["libertarianism"],
+    "notes": "Tests enumeration retrieval — checks whether the model can retrieve a structured list accurately. Source: libertarianism_network_state.md"
+  },
+  {
+    "question": "What is a private city and what is the role of the operator?",
+    "ground_truth": "A private city is a voluntary, for-profit enterprise that offers protection for life, liberty, and property within a defined territory, governed by a contractual relationship between residents and the operator rather than democratic politics. The operator's primary role is to maintain a secure framework — controlling who enters and expelling those who violate others' rights — while leaving everything else to private entrepreneurs, insurance, and civil society. The operator's incentive is profit, which aligns their interest with offering an attractive, well-run product.",
+    "topics": ["libertarianism"],
+    "notes": "Tests precise concept retrieval. Source: libertarianism_private_cities.md"
+  },
+  {
+    "question": "How does competition between jurisdictions protect individual freedom according to the private cities argument?",
+    "ground_truth": "The private cities argument holds that competition — not constitutions, separation of powers, or voting — is the only historically proven method for limiting power. Monaco is cited as an example: despite residents having no political rights, the threat of people leaving keeps the government restrained. In a private city, the operator cannot become a dictator because residents can exit to a competing jurisdiction, making the right of exit the ultimate check on abuse of power.",
+    "topics": ["libertarianism"],
+    "notes": "Tests argument retrieval with a real-world example. Source: libertarianism_private_cities.md"
+  },
+  {
+    "question": "What do the network state and private cities concepts have in common in their approach to political change?",
+    "ground_truth": "Both concepts reject conventional paths to political change — elections, revolution, and war — in favor of peaceful, voluntary, opt-in alternatives built outside existing state structures. Both rely on voluntary participation as the legitimating principle, use exit (leaving) rather than voice (voting) as the primary check on governance, and aim to create competitive pressure that forces existing states to reform. Both also propose starting small and growing through demonstrated success rather than seeking majority consensus.",
+    "topics": ["libertarianism"],
+    "notes": "Tests cross-document synthesis across both libertarianism sources — the hardest retrieval pattern. Source: libertarianism_network_state.md, libertarianism_private_cities.md"
+  },
+  {
+    "question": "What is the Austrian view on the role of savings versus spending in economic growth?",
+    "ground_truth": "Austrian economists believe savings are the engine of growth: money saved is invested, investment improves business productivity, and that drives the economy forward. This contrasts directly with the Keynesian view that spending — aggregate demand — is the backbone of economic growth, and that a higher GDP from increased spending signals economic progress.",
+    "topics": ["austrian_economics"],
+    "notes": "Tests contrastive retrieval on a specific mechanism. Source: austrian_living_wealth.md"
+  },
+  {
+    "question": "What is the concept of subjective value in Austrian economics and how does it resolve the diamond-water paradox?",
+    "ground_truth": "Austrian economics holds that value is not inherent in goods but is determined by individuals' subjective judgments of their utility in specific circumstances. The diamond-water paradox asks why diamonds, which have little practical use, are worth more than water, which is essential for survival. Austrian economists resolve this through marginal utility: water is abundant so its marginal utility (the value of one additional unit) is low, while diamonds are scarce so each additional diamond satisfies a more significant want, making them more valuable.",
+    "topics": ["austrian_economics"],
+    "notes": "Tests retrieval of a named concept with its explanatory mechanism. Source: austrian_doubleu.md"
+  },
+  {
+    "question": "What results did Javier Milei's Austrian-inspired policies produce in Argentina?",
+    "ground_truth": "After taking office in December 2023, Milei reduced monthly inflation from 25.5% to 2.7% by October 2024, achieved Argentina's first budget surplus in 12 years through subsidy cuts and austerity, and stabilized the currency (the black-market dollar gap shrank by 44%). However, social costs were severe: consumer spending fell 20%, poverty rose from 41.7% to 52.9%, unemployment increased, and around 200,000 construction jobs were lost due to suspended public works.",
+    "topics": ["austrian_economics"],
+    "notes": "Tests retrieval of a real-world case study with mixed outcomes — good for faithfulness scoring in RAGAS. Source: austrian_doubleu.md"
+  },
+  {
+    "question": "Why do Austrian economists argue that socialism must inevitably fail?",
+    "ground_truth": "According to Ludwig von Mises, socialism fails because it eliminates the price mechanism — the essential tool for coordinating economic activity. Without prices reflecting supply and demand, resources are misallocated, leading to shortages and economic decline. Mises stated: 'Without economic calculation, there can be no economy. Hence, in a socialist state wherein the pursuit of economic calculation is impossible, there can be — in our sense of the term — no economy whatsoever.'",
+    "topics": ["austrian_economics"],
+    "notes": "Tests retrieval of a specific argument anchored by a direct quote. Source: austrian_doubleu.md"
+  },
+  {
+    "question": "How do Austrian and Keynesian economics differ methodologically?",
+    "ground_truth": "Austrian economics relies on deductive reasoning and praxeology — the logic of human action — focusing on individual choice and subjective value rather than statistical aggregates. Keynesian economics, by contrast, focuses on macroeconomic aggregates and uses empirical data, statistical modeling, and econometrics to analyze and predict economic behavior. Austrian economists are critical of mathematical modeling, arguing it fails to capture the complexity of individual human action.",
+    "topics": ["austrian_economics"],
+    "notes": "Tests retrieval of a methodological distinction spread across sources. Source: austrian_living_wealth.md, austrian_doubleu.md"
+  },
+  {
+    "question": "What are the two definitions of a 'new country' proposed in The Network State, and how is Bitcoin used as an analogy?",
+    "ground_truth": "The Network State proposes a numerical definition (a community with measurable members, land, and on-chain income) and a societal definition (diplomatic recognition by existing states). Bitcoin is used as the analogy: it first achieved numerical significance (a billion-dollar market cap) before gaining societal recognition (listed on Bloomberg, adopted as legal tender in El Salvador). A network state would follow the same path — building numerical traction first, then converting it into diplomatic recognition.",
+    "topics": ["libertarianism"],
+    "notes": "Tests retrieval of a two-part definition plus an analogy. Source: libertarianism_network_state.md"
+  },
+  {
+    "question": "What is a 'reverse diaspora' in the context of the network state?",
+    "ground_truth": "A reverse diaspora is a community that forms first on the internet, builds its culture online, and only then comes together in person to build physical dwellings and structures. This is the inverse of a traditional ethnic diaspora, where people are physically dispersed but remain connected to a common origin. In the network state model, each physical location is like a cloud embassy — an outpost of a digital community, rather than a remnant of a physical homeland.",
+    "topics": ["libertarianism"],
+    "notes": "Tests retrieval of a specific coined term and its meaning. Source: libertarianism_network_state.md"
+  },
+  {
+    "question": "Why does the private cities model argue that majority rule cannot guarantee individual liberty?",
+    "ground_truth": "The private cities argument holds that majority rule consistently fails to protect individual rights because even near-unanimous consent cannot legitimately impose obligations on a dissenting minority. As Titus Gebel illustrates: even if 99 percent of residents agree to form a council and submit to its decisions, that council has no right to impose its will on the remaining 1 percent. The only binding obligations come from the individual's own contract with the operator — not from collective democratic decisions.",
+    "topics": ["libertarianism"],
+    "notes": "Tests retrieval of a specific argument about the limits of democracy. Source: libertarianism_private_cities.md"
+  },
+  {
+    "question": "How must a private city be established in relation to an existing state, and what incentive does the parent state have?",
+    "ground_truth": "A private city requires a negotiated agreement with an existing sovereign state, which grants the operator the right to govern internal affairs within a defined territory — ideally unincorporated land with sea access. The parent state's incentive is economic: just as Hong Kong and Singapore created prosperous areas adjacent to their borders whose residents and businesses pay taxes to the mother country, a private city built on previously underdeveloped land generates new wealth and revenue the parent state would not otherwise have.",
+    "topics": ["libertarianism"],
+    "notes": "Tests retrieval of a procedural and incentive-based argument. Source: libertarianism_private_cities.md"
+  },
+  {
+    "question": "What shared philosophical assumption underlies both Austrian economics and the libertarian proposals for private cities and network states?",
+    "ground_truth": "All three rest on the primacy of individual voluntary choice as the only legitimate basis for social and economic organization. Austrian economics holds that value and economic coordination emerge from individual subjective decisions, not central planning. Private cities and network states both require opt-in consent — residency is contractual, exit is always possible, and no collective decision can bind those who did not agree. In each case, spontaneous order through voluntary interaction is preferred over imposed collective governance.",
+    "topics": ["austrian_economics", "libertarianism"],
+    "notes": "Cross-topic synthesis question — the hardest retrieval pattern, requires chunks from both topic collections. Source: austrian_doubleu.md, austrian_living_wealth.md, libertarianism_private_cities.md, libertarianism_network_state.md"
+  }
+]

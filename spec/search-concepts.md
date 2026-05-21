@@ -117,6 +117,40 @@ Only chunks that share at least one token with the query are ever touched. Chunk
 
 The cross-encoder reads both the question and each chunk together in a single forward pass — slower than the bi-encoder but far more accurate at judging direct relevance. It scores the top ~20 fused candidates and returns the top 5.
 
+### Example
+
+Query: **"what is the leave policy?"**
+
+RRF has already merged the dense and sparse lists into 4 candidates. Chunk B ranked high because it appeared in both lists consistently — but it doesn't directly answer the question.
+
+**RRF output (input to reranker):**
+
+| rank | chunk | content |
+| --- | --- | --- |
+| 0 | A | "employees must submit leave requests 30 days in advance" |
+| 1 | B | "HR department manages all employee benefits and policies" |
+| 2 | C | "the annual leave policy grants 20 days per year" |
+| 3 | D | "sick leave requires a doctor's note after 3 days" |
+
+The cross-encoder scores each (question, chunk) pair together:
+
+```text
+("what is the leave policy?", chunk A) → 0.91
+("what is the leave policy?", chunk B) → 0.23
+("what is the leave policy?", chunk C) → 0.97
+("what is the leave policy?", chunk D) → 0.61
+```
+
+**Reranker output (top_k=3):**
+
+| rank | chunk | score |
+| --- | --- | --- |
+| 0 | C | 0.97 |
+| 1 | A | 0.91 |
+| 2 | D | 0.61 |
+
+Chunk B is cut — consistent cross-list presence got it into the candidate pool, but the cross-encoder found it doesn't answer the question. Chunk C jumps from position 2 to 0 because it contains "leave policy" in a definitional sentence. These are the chunks passed to the LLM as context.
+
 ---
 
 ## Reciprocal Rank Fusion (RRF)

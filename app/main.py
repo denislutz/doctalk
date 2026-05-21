@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 
 from app.api import collections, health, query, upload
 from app.config import settings
@@ -27,9 +28,24 @@ async def lifespan(app: FastAPI):  # type: ignore[no-untyped-def]
     app.state.vector_db_client = VectorDB(settings.vector_db_url)
     app.state.embedder = Embedder(settings.embedding_model)
     app.state.reranker = Reranker(model_name=settings.reranker_model)
-    app.state.langchain_llm = ChatOllama(
-        base_url=settings.langchain_llm_url, model=settings.default_llm_model
-    )
+    
+    # pick the configured llm model deepseek vs default
+
+    if settings.default_llm_provider == "deepseek":
+        logger.info("Using DeepSeek as LLM provider")
+        selected_llm = ChatOpenAI(
+            api_key=settings.deepseek_api_key,
+            base_url=settings.deepseek_base_url,
+            model=settings.deepseek_model,
+            temperature=0,
+        )
+    else:
+        logger.info("Using Ollama as LLM provider")
+        selected_llm = ChatOllama(
+            base_url=settings.default_llm_url, model=settings.default_llm_model
+        )
+
+    app.state.langchain_llm = selected_llm
     app.state.doc_registry = DocRegistry(settings.registry_db_path)
     logger.info("DocRegistry ready at %s", settings.registry_db_path)
     yield

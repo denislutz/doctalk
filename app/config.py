@@ -13,12 +13,16 @@ class Settings(BaseSettings):
     vector_db_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None
 
-    langchain_llm_url: str = "http://localhost:11434"
     default_llm_provider: str = "ollama"
     default_llm_model: str = "llama3.2:3b"
 
-    anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-3-haiku-20240307"
+    # Ollama
+    default_llm_url: str = "http://localhost:11434"
+
+    # DeepSeek
+    deepseek_api_key: str | None = None
+    deepseek_model: str = "deepseek-v4-flash"
+    deepseek_base_url: str = "https://api.deepseek.com"
 
     embedding_model: str = "all-MiniLM-L6-v2"
     upload_dir: str = str(_PROJECT_ROOT / "data" / "uploads")

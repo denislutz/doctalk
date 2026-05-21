@@ -40,12 +40,12 @@ mise run frontend
 
 Copy `.env.example` to `.env` and configure:
 
-| Variable            | Default      | Description                   |
-| ------------------- | ------------ | ----------------------------- |
-| `API_KEY`           | `changeme`   | Header auth key (`X-API-Key`) |
-| `ANTHROPIC_API_KEY` | —            | Optional Claude API fallback  |
-| `OLLAMA_MODEL`      | `mistral:7b` | Local LLM model               |
-| `QDRANT_HOST`       | `localhost`  | Qdrant host                   |
+| Variable           | Default      | Description                   |
+| ------------------ | ------------ | ----------------------------- |
+| `API_KEY`          | `changeme`   | Header auth key (`X-API-Key`) |
+| `DEEPSEEK_API_KEY` | —            | DeepSeek API key              |
+| `OLLAMA_MODEL`     | `mistral:7b` | Local LLM model               |
+| `QDRANT_HOST`      | `localhost`  | Qdrant host                   |
 
 ## VS Code Extensions
 
@@ -93,11 +93,11 @@ mise run show-tree        # Show dependency tree
 
 Evaluated with [RAGAS](https://docs.ragas.io) on a 20-question test set covering two document collections (Austrian Economics, Libertarianism). The pipeline runs hybrid dense+sparse search with RRF fusion and cross-encoder reranking, judged by Mistral 7B locally.
 
-| Metric | Score |
-| --- | --- |
+| Metric            | Score     |
+| ----------------- | --------- |
 | Context Precision | **0.971** |
-| Answer Relevancy | **0.860** |
-| Overall | **0.916** |
+| Answer Relevancy  | **0.860** |
+| Overall           | **0.916** |
 
 **Context Precision (0.971)** — retrieved chunks are highly relevant and correctly ranked. The hybrid search + reranking pipeline surfaces the right content.
 

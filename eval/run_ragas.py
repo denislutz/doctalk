@@ -94,7 +94,7 @@ def _build_services(env: str) -> tuple[VectorDB, Embedder, Reranker, DocRegistry
     registry = _timed("DocRegistry", lambda: DocRegistry(db_path=registry_path))
     llm = _timed(
         "Ollama",
-        lambda: ChatOllama(base_url=settings.langchain_llm_url, model=settings.default_llm_model),
+        lambda: ChatOllama(base_url=settings.default_llm_url, model=settings.default_llm_model),
     )
     return vector_db, embedder, reranker, registry, llm
 
@@ -291,7 +291,7 @@ async def main(dataset_path: Path, out_dir: Path, env: str, limit: int | None = 
 
     print("Configuring RAGAS judge (Ollama/mistral:7b)...")
     judge_llm = LangchainLLMWrapper(
-        ChatOllama(base_url=settings.langchain_llm_url, model="mistral:7b", format="json")
+        ChatOllama(base_url=settings.default_llm_url, model="mistral:7b", format="json")
     )
     embeddings = _LangchainEmbeddingsWrapper(
         LCHuggingFaceEmbeddings(model_name=settings.embedding_model)

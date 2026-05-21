@@ -405,7 +405,7 @@ def build_llm(settings: Settings) -> BaseChatModel:
         )
     # default: local Ollama
     return ChatOllama(
-        base_url=settings.langchain_llm_url,
+        base_url=settings.default_llm_url,
         model=settings.default_llm_model,
     )
 ```

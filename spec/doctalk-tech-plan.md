@@ -376,67 +376,10 @@ AI-first topics: LLM provider swap, eval frameworks, observability. Highest lear
 | Test Q&A dataset (20+ pairs)             | ✅    |
 | RAGAS evaluation                         | ✅    |
 | Structured logging (per-request trace)   | ✅    |
-| DeepSeek API provider toggle             | ❌    |
+| DeepSeek API provider toggle             | ✅    |
 | DeepEval integration                     | ❌    |
 | Benchmark script                         | ❌    |
 | SSE streaming endpoint (`/query/stream`) | ❌    |
-
-#### DeepSeek Provider Integration
-
-**Goal:** demonstrate a pluggable remote LLM API as a portfolio example — shows how to swap providers without touching the RAG chain.
-
-**Why DeepSeek over Claude:**
-
-- OpenAI-compatible API — uses `ChatOpenAI` with a custom `base_url`, no new SDK needed
-- ~20–50× cheaper than Claude for dev/demo workloads
-- `deepseek-chat` (V3) is strong for summarization and RAG generation
-- Also available as a local Ollama model (`deepseek-r1:7b`) for fully offline use
-
-**Design — provider factory in `app/llm/provider.py`:**
-
-```python
-def build_llm(settings: Settings) -> BaseChatModel:
-    if settings.default_llm_provider == "deepseek":
-        return ChatOpenAI(
-            api_key=settings.deepseek_api_key,
-            base_url="https://api.deepseek.com",
-            model=settings.deepseek_model,        # default: "deepseek-chat"
-            temperature=0,
-        )
-    # default: local Ollama
-    return ChatOllama(
-        base_url=settings.default_llm_url,
-        model=settings.default_llm_model,
-    )
-```
-
-`main.py` calls `build_llm(settings)` in the lifespan and stores the result as `app.state.langchain_llm`. `chain.py` already accepts `BaseChatModel` — no changes needed there.
-
-**New config fields in `Settings`:**
-
-```python
-deepseek_api_key: str | None = None
-deepseek_model: str = "deepseek-chat"
-```
-
-**New `.env` variables:**
-
-```bash
-DEFAULT_LLM_PROVIDER=deepseek   # or "ollama" (default)
-DEEPSEEK_API_KEY=sk-...
-DEEPSEEK_MODEL=deepseek-chat    # or deepseek-reasoner
-```
-
-**Files to change:**
-
-| File                       | Change                                                      |
-| -------------------------- | ----------------------------------------------------------- |
-| `app/llm/provider.py`      | New file — `build_llm()` factory                            |
-| `app/config.py`            | Add `deepseek_api_key`, `deepseek_model`                    |
-| `app/main.py`              | Replace inline `ChatOllama(...)` with `build_llm(settings)` |
-| `app/llm/claude_client.py` | Delete — stub, never wired up                               |
-| `.env.example`             | Document new vars                                           |
-| `pyproject.toml`           | Add `langchain-openai` dependency                           |
 
 #### SSE Streaming Endpoint
 

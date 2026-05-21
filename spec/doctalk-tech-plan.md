@@ -1,7 +1,7 @@
 # DocTalk — Technical Specification
 
 **Type:** Self-hosted RAG system  
-**Stack:** Python 3.12 · FastAPI · Qdrant · LangChain · Ollama · Streamlit
+**Stack:** Python 3.12 · FastAPI · Qdrant · LangChain · Ollama · DeepSeek API · Streamlit · React/Next.js
 
 ---
 
@@ -11,40 +11,44 @@ Build a self-hosted, GDPR-compliant RAG application where companies upload docum
 
 **Target demo scenario:** A compliance officer uploads policy documents, HR guidelines, and plain-text reports into separate collections — then asks questions like "What are our data retention requirements for employee records?" and gets sourced answers.
 
+**Portfolio signal:** DocTalk demonstrates the full React/Python/AI stack — FastAPI backend, production-grade hybrid RAG pipeline, and two frontends (Streamlit for rapid prototyping, React/Next.js for production UI). Both frontends consume the same API, showing architectural separation of concerns.
+
 ---
 
 ## 2. Architecture Overview
 
 ```ascii
-┌─────────────────────────────────────────────────────────────┐
-│                      DocTalk System                         │
-│                                                             │
-│  ┌──────────┐    ┌──────────────┐    ┌──────────────────┐  │
-│  │  Upload   │───▶│  Ingestion   │───▶│   Qdrant         │  │
-│  │  API      │    │  Pipeline    │    │   Vector DB      │  │
-│  │ (FastAPI) │    │              │    │                  │  │
-│  └──────────┘    │ ┌──────────┐ │    │ Collection A     │  │
-│                  │ │ Loaders  │ │    │ Collection B     │  │
-│  ┌──────────┐   │ │ DOCX     │ │    │ Collection C     │  │
-│  │  Query   │   │ │ PDF      │ │    └──────────────────┘  │
-│  │  API     │   │ │ MD       │ │             │            │
-│  │ (FastAPI)│   │ │ TXT      │ │    ┌────────▼─────────┐  │
-│  └────┬─────┘   │ └──────────┘ │    │   Retrieval      │  │
-│       │         │ ┌──────────┐ │    │   Chain           │  │
-│       │         │ │ Chunker  │ │    │   (LangChain)     │  │
-│       └────────▶│ │(adaptive)│ │    │                   │  │
-│                 │ └──────────┘ │    │ Hybrid Search     │  │
-│  ┌──────────┐  │ ┌──────────┐ │    │ Re-Ranking        │  │
-│  │ Streamlit│  │ │ Embedder │ │    │ Source Attribution │  │
-│  │ Frontend │  │ │ (local)  │ │    └────────┬──────────┘  │
-│  └──────────┘  │ └──────────┘ │             │             │
-│                └──────────────┘    ┌────────▼─────────┐   │
-│                                    │   LLM            │   │
-│                                    │   Ollama(local)   │   │
-│                                    │   or Claude API   │   │
-│                                    └──────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        DocTalk System                           │
+│                                                                 │
+│  ┌─────────────┐   ┌──────────────┐   ┌──────────────────────┐ │
+│  │  Upload API  │──▶│  Ingestion   │──▶│   Qdrant             │ │
+│  │  (FastAPI)   │   │  Pipeline    │   │   Vector DB          │ │
+│  └─────────────┘   │              │   │                      │ │
+│                    │ ┌──────────┐ │   │ Collection A         │ │
+│  ┌─────────────┐   │ │ Loaders  │ │   │ Collection B         │ │
+│  │  Query API   │   │ │ DOCX     │ │   │ Collection C         │ │
+│  │  (FastAPI)   │   │ │ PDF      │ │   └──────────────────────┘ │
+│  └──────┬──────┘   │ │ MD / TXT │ │              │             │
+│         │          │ └──────────┘ │   ┌───────────▼──────────┐ │
+│         │          │ ┌──────────┐ │   │   Retrieval Chain    │ │
+│         │          │ │ Chunker  │ │   │   (LangChain)        │ │
+│         └─────────▶│ │(adaptive)│ │   │                      │ │
+│                    │ └──────────┘ │   │ Dense + BM25 + RRF   │ │
+│  ┌─────────────┐   │ ┌──────────┐ │   │ Cross-Encoder Rerank │ │
+│  │  Streamlit  │   │ │ Embedder │ │   │ Source Attribution   │ │
+│  │  Frontend   │   │ └──────────┘ │   └───────────┬──────────┘ │
+│  └─────────────┘   └─────────────┘               │             │
+│                                        ┌──────────▼──────────┐ │
+│  ┌─────────────┐                       │   LLM Provider      │ │
+│  │  React/     │                       │   Ollama (local)    │ │
+│  │  Next.js    │                       │   DeepSeek API      │ │
+│  │  Frontend   │                       │   (pluggable)       │ │
+│  └─────────────┘                       └─────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+Both frontends consume the same FastAPI endpoints. Streamlit stays as the rapid-demo layer; React is the production-quality portfolio showcase.
 
 ---
 
@@ -53,16 +57,17 @@ Build a self-hosted, GDPR-compliant RAG application where companies upload docum
 | Layer                | Technology                                       | Why                                                             |
 | -------------------- | ------------------------------------------------ | --------------------------------------------------------------- |
 | **Language**         | Python 3.12+                                     | All libraries native, async support, PEP 695 type syntax        |
-| **API Framework**    | FastAPI + Pydantic                               | Async, typed, auto-docs                                         |
+| **API Framework**    | FastAPI + Pydantic                               | Async, typed, auto-docs, SSE streaming                          |
 | **Vector DB**        | Qdrant (local binary)                            | Collection isolation, metadata filtering, sparse vector support |
 | **Embeddings**       | `sentence-transformers/all-MiniLM-L6-v2` (local) | Free, fast, GDPR-compliant                                      |
 | **RAG Framework**    | LangChain                                        | LCEL chains, prompt templates, output parsers                   |
-| **LLM**              | Ollama (local) + Claude API toggle               | Self-hosted default, API option for quality comparison          |
+| **LLM**              | Ollama (local) + DeepSeek API                    | Self-hosted default; DeepSeek as cheap remote API example       |
 | **Doc Processing**   | `python-docx`, `PyMuPDF`, `markdown`             | One loader per format, all pure Python                          |
-| **Frontend**         | Streamlit (MVP)                                  | Fast to build, good enough for demo                             |
-| **Containerization** | Docker Compose                                   | Production deployment only                                      |
+| **Frontend A**       | Streamlit (MVP / demo layer)                     | Fast to build, good for rapid demos and internal use            |
+| **Frontend B**       | React + Next.js + Tailwind CSS                   | Production UI, streaming chat, portfolio showcase               |
+| **Containerization** | Docker Compose                                   | Single-command startup for both frontends + backend             |
 | **Evaluation**       | RAGAS + DeepEval                                 | Pipeline quality metrics                                        |
-| **Testing**          | pytest + httpx (async) + factory-boy             | Standard Python testing with DB factory fixtures                |
+| **Testing**          | pytest + httpx (async) + factory-boy             | Integration tests hitting real services, no mocks               |
 
 ---
 
@@ -94,7 +99,7 @@ collection_name = f"doctalk_{tenant}_{topic_slug}"
 
 ### Shared Library (`shared/doctalk_shared/models.py`)
 
-All Pydantic models live in a shared package imported by both the API and the Streamlit frontend.
+All Pydantic models live in a shared package imported by the FastAPI app, the Streamlit frontend, and available as a typed contract for the React frontend via the auto-generated OpenAPI schema.
 
 ```python
 class ChatMessage(BaseModel):
@@ -167,26 +172,27 @@ Three mechanisms — dense semantic search, sparse keyword search, and cross-enc
 ```text
 User Question
         │
-        ├─▶ Dense Search  (search_collection_dense)                      ✅
+        ├─▶ Dense Search  (search_collection_dense)
         │       embedder.embed_dense([question]) → vector [384 floats]
         │       Qdrant cosine similarity
         │       → list[RetrievedChunk]  top_k=20, by cosine score
         │
-        ├─▶ Sparse / BM25 Search  (search_collection_sparse)             ✅
+        ├─▶ Sparse / BM25 Search  (search_collection_sparse)
         │       question → sparse vector {term: weight}
         │       Qdrant sparse search
         │       → list[RetrievedChunk]  top_k=20, by BM25 score
         │
-        ├─▶ Reciprocal Rank Fusion  (reciprocal_rank_fusion)        ✅
+        ├─▶ Reciprocal Rank Fusion  (reciprocal_rank_fusion)
         │       score = 1/(60 + rank_dense) + 1/(60 + rank_bm25)
         │       → list[RetrievedChunk]  top_k=10, by RRF score
         │
-        ├─▶ Cross-Encoder Re-Ranking  (reranker.rerank)             ✅
+        ├─▶ Cross-Encoder Re-Ranking  (reranker.rerank)
         │       CrossEncoder.predict([(question, chunk.content), ...])
         │       → list[RetrievedChunk]  top_k=5, by relevance score
         │
-        └─▶ LLM Generation  (chain.generate_answer)                 ✅
-                LCEL: ChatPromptTemplate | ChatOllama | StrOutputParser
+        └─▶ LLM Generation  (chain.generate_answer)
+                LCEL: ChatPromptTemplate | BaseChatModel | StrOutputParser
+                BaseChatModel = ChatOllama (local) or ChatOpenAI→DeepSeek (remote)
                 → str  answer with [Source: filename, page] citations
 ```
 
@@ -197,6 +203,10 @@ System prompt instructs the model to answer only from provided context chunks, c
 ### 6.4 Conversation Memory
 
 History carried as `list[ChatMessage]` in `QueryRequest.history` (oldest first), injected into the chain via `MessagesPlaceholder`.
+
+### 6.5 Streaming
+
+FastAPI exposes a `GET /query/stream` endpoint using `StreamingResponse` with `text/event-stream`. The LangChain chain's `.astream()` yields tokens as SSE events. Both the Streamlit frontend (via `requests` streaming) and the React frontend (via `EventSource` / `fetch` with `ReadableStream`) consume this endpoint for real-time token-by-token rendering.
 
 ---
 
@@ -211,8 +221,11 @@ DELETE /collections/{topic}            Delete collection + all data
 POST   /collections/{topic}/upload     Upload document (multipart)
 DELETE /collections/{topic}/docs/{id}  Remove single document
 
-POST   /query                          Ask a question
+POST   /query                          Ask a question (full response)
+GET    /query/stream                   Ask a question (SSE streaming)
 GET    /query/history                  Recent queries (session-based)
+
+POST   /extract-metadata               Infer title/author from file (stateless)
 
 GET    /health                         System health (Qdrant, Ollama, embeddings)
 ```
@@ -223,15 +236,15 @@ GET    /health                         System health (Qdrant, Ollama, embeddings
 
 ```text
 doctalk/
-├── docker-compose.yml          # Production deployment
-├── Dockerfile
+├── docker-compose.yml          # Starts backend + both frontends
+├── Dockerfile                  # Backend image
 ├── pyproject.toml
 ├── .env.example
 ├── README.md
 │
 ├── shared/
 │   └── doctalk_shared/
-│       └── models.py           # All Pydantic models
+│       └── models.py           # All Pydantic models (shared by backend + Streamlit)
 │
 ├── app/
 │   ├── main.py                 # FastAPI app, lifespan
@@ -240,8 +253,11 @@ doctalk/
 │   ├── api/
 │   │   ├── collections.py
 │   │   ├── upload.py
-│   │   ├── query.py
+│   │   ├── query.py            # POST /query + GET /query/stream (SSE)
 │   │   └── health.py
+│   │
+│   ├── llm/
+│   │   └── provider.py         # build_llm() factory — Ollama or DeepSeek
 │   │
 │   ├── ingestion/
 │   │   ├── file_loader_service.py
@@ -257,16 +273,53 @@ doctalk/
 │       ├── vector_db_client.py
 │       └── doc_registry.py     # SQLite doc registry
 │
+├── frontend-streamlit/         # Streamlit app (MVP / demo layer)
+│   ├── app.py
+│   ├── pages/
+│   │   ├── 1_Upload.py
+│   │   ├── 2_Chat.py
+│   │   └── 3_Collections.py
+│   └── requirements.txt
+│
+├── frontend-react/             # Next.js app (production UI / portfolio showcase)
+│   ├── package.json
+│   ├── next.config.ts
+│   ├── tailwind.config.ts
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── layout.tsx
+│   │   │   ├── page.tsx        # Chat view (default landing)
+│   │   │   ├── collections/
+│   │   │   │   └── page.tsx    # Collection manager
+│   │   │   └── upload/
+│   │   │       └── page.tsx    # Upload page
+│   │   ├── components/
+│   │   │   ├── ChatWindow.tsx      # Message list + streaming token renderer
+│   │   │   ├── MessageBubble.tsx   # User / assistant bubble with source badges
+│   │   │   ├── SourceCard.tsx      # Source citation: filename, page, preview
+│   │   │   ├── CollectionList.tsx  # Collection grid with stats
+│   │   │   ├── UploadDropzone.tsx  # Drag-and-drop file upload
+│   │   │   └── HealthBadge.tsx     # Live /health indicator
+│   │   ├── hooks/
+│   │   │   ├── useChat.ts          # SSE stream consumption + message state
+│   │   │   └── useCollections.ts   # Collection CRUD via API
+│   │   └── lib/
+│   │       └── api.ts              # Typed API client (fetch wrapper)
+│   └── Dockerfile
+│
 ├── eval/
 │   ├── test_dataset.json
 │   ├── run_ragas.py
 │   └── run_deepeval.py
 │
 ├── tests/
+│   ├── conftest.py
+│   ├── factories.py
 │   ├── test_loaders.py
 │   ├── test_chunker.py
 │   ├── test_api.py
-│   └── test_retrieval.py
+│   ├── test_retrieval.py
+│   └── test_registry.py
 │
 └── scripts/
     ├── seed_demo.py
@@ -305,7 +358,7 @@ doctalk/
 | BM25 / sparse search                                      | ✅    |
 | Reciprocal Rank Fusion merge                              | ✅    |
 
-### Phase 3: UI ✅
+### Phase 3: Streamlit UI ✅
 
 | Task                                    | Done |
 | --------------------------------------- | ---- |
@@ -314,128 +367,164 @@ doctalk/
 | Streamlit frontend — collection manager | ✅    |
 | Collection stats endpoint               | ✅    |
 
-### Phase 4: AI/Evaluation (next — priority) ← **current focus**
+### Phase 4: Provider Flexibility + Evaluation ← **current focus**
 
-AI-first topics: provider flexibility, evaluation frameworks, observability. These are the highest learning-value items for portfolio positioning.
+AI-first topics: LLM provider swap, eval frameworks, observability. Highest learning-value items for portfolio positioning.
 
-| Task                                   | Done |
-| -------------------------------------- | ---- |
-| Test Q&A dataset (20+ pairs)           | ❌    |
-| RAGAS evaluation                       | ❌    |
-| DeepEval integration                   | ❌    |
-| Benchmark script                       | ❌    |
-| Claude API provider toggle             | ❌    |
-| Structured logging (per-request trace) | ❌    |
+| Task                                     | Done |
+| ---------------------------------------- | ---- |
+| Test Q&A dataset (20+ pairs)             | ✅    |
+| RAGAS evaluation                         | ✅    |
+| Structured logging (per-request trace)   | ✅    |
+| DeepSeek API provider toggle             | ❌    |
+| DeepEval integration                     | ❌    |
+| Benchmark script                         | ❌    |
+| SSE streaming endpoint (`/query/stream`) | ❌    |
 
-### Phase 5: Code Style — OOP vs Functional (deferred)
+#### DeepSeek Provider Integration
 
-Evaluate which classes justify being classes and which should be plain functions. The key question is whether the object holds expensive-to-initialize state (model weights, DB connections) that must be reused across calls — if yes, the class is justified. If the "class" is just a namespace for one or two stateless functions, convert to module-level functions.
+**Goal:** demonstrate a pluggable remote LLM API as a portfolio example — shows how to swap providers without touching the RAG chain.
 
-| Class              | Holds shared state?                               | Verdict                                                              | Done |
-| ------------------ | ------------------------------------------------- | -------------------------------------------------------------------- | ---- |
-| `Reranker`         | Yes — `CrossEncoder` model loaded once at startup | Keep as class; loading per-call would add ~1–2s latency every query  | ❌    |
-| `Embedder`         | Yes — `SentenceTransformer` + sparse model        | Keep as class for same reason                                        | ❌    |
-| `VectorDB`         | Yes — Qdrant client + connection                  | Keep as class                                                        | ❌    |
-| `DocRegistry`      | Yes — SQLite connection                           | Keep as class                                                        | ❌    |
-| `IngestionService` | No own state — wraps injected collaborators       | Consider converting to module-level functions                        | ❌    |
-| `search_service`   | Already module-level functions                    | ✅ Already functional                                                | ✅    |
-| `chain.py`         | Already module-level functions                    | ✅ Already functional                                                | ✅    |
+**Why DeepSeek over Claude:**
 
-**Rule of thumb:** a class is justified when construction cost (model load, connection open) must be paid once and the instance reused. A single-method class with no expensive constructor is just a function with extra syntax.
+- OpenAI-compatible API — uses `ChatOpenAI` with a custom `base_url`, no new SDK needed
+- ~20–50× cheaper than Claude for dev/demo workloads
+- `deepseek-chat` (V3) is strong for summarization and RAG generation
+- Also available as a local Ollama model (`deepseek-r1:7b`) for fully offline use
 
----
+**Design — provider factory in `app/llm/provider.py`:**
 
-### Phase 6: Hardening + Polish (deferred)
+```python
+def build_llm(settings: Settings) -> BaseChatModel:
+    if settings.default_llm_provider == "deepseek":
+        return ChatOpenAI(
+            api_key=settings.deepseek_api_key,
+            base_url="https://api.deepseek.com",
+            model=settings.deepseek_model,        # default: "deepseek-chat"
+            temperature=0,
+        )
+    # default: local Ollama
+    return ChatOllama(
+        base_url=settings.langchain_llm_url,
+        model=settings.default_llm_model,
+    )
+```
 
-Infrastructure and presentation work — do after evaluation is solid.
+`main.py` calls `build_llm(settings)` in the lifespan and stores the result as `app.state.langchain_llm`. `chain.py` already accepts `BaseChatModel` — no changes needed there.
 
-| Task                                   | Done |
-| -------------------------------------- | ---- |
-| Python 3.12 upgrade                    | ❌    |
-| Document delete endpoint               | ❌    |
-| API key auth middleware                | ❌    |
-| Sample data seeding script             | ❌    |
-| Docker optimization                    | ❌    |
-| README with screenshots                | ❌    |
+**New config fields in `Settings`:**
+
+```python
+deepseek_api_key: str | None = None
+deepseek_model: str = "deepseek-chat"
+```
+
+**New `.env` variables:**
+
+```bash
+DEFAULT_LLM_PROVIDER=deepseek   # or "ollama" (default)
+DEEPSEEK_API_KEY=sk-...
+DEEPSEEK_MODEL=deepseek-chat    # or deepseek-reasoner
+```
+
+**Files to change:**
+
+| File                       | Change                                                      |
+| -------------------------- | ----------------------------------------------------------- |
+| `app/llm/provider.py`      | New file — `build_llm()` factory                            |
+| `app/config.py`            | Add `deepseek_api_key`, `deepseek_model`                    |
+| `app/main.py`              | Replace inline `ChatOllama(...)` with `build_llm(settings)` |
+| `app/llm/claude_client.py` | Delete — stub, never wired up                               |
+| `.env.example`             | Document new vars                                           |
+| `pyproject.toml`           | Add `langchain-openai` dependency                           |
+
+#### SSE Streaming Endpoint
+
+Required by the React frontend for real-time token rendering. Add to `app/api/query.py`:
+
+```python
+@router.get("/query/stream")
+async def query_stream(question: str, topics: str | None = None):
+    async def event_generator():
+        async for token in chain.astream(question, topics):
+            yield f"data: {token}\n\n"
+        yield "data: [DONE]\n\n"
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+```
+
+Streamlit can optionally consume this too; the existing POST `/query` endpoint stays unchanged.
+
+### Phase 5: React Frontend
+
+**Goal:** Production-quality chat UI that demonstrates the React/Python/AI stack combination directly. Both frontends run simultaneously — Streamlit on port 8501, React on port 3000, both pointing at the same FastAPI backend on port 8000.
+
+**Why keep both:** Streamlit shows speed-of-iteration (built in hours); React shows production engineering (typed API client, streaming, component architecture). Having both in the same repo is itself a talking point in proposals.
+
+| Task                                              | Done |
+| ------------------------------------------------- | ---- |
+| Next.js + Tailwind scaffold in `frontend-react/`  | ❌    |
+| Typed API client `lib/api.ts` (from OpenAPI spec) | ❌    |
+| `useChat` hook — SSE stream + message state       | ❌    |
+| `ChatWindow` + `MessageBubble` — token streaming  | ❌    |
+| `SourceCard` — citation (filename, page, preview) | ❌    |
+| `useCollections` hook + `CollectionList`          | ❌    |
+| `UploadDropzone` — drag-and-drop upload           | ❌    |
+| `HealthBadge` — live backend health indicator     | ❌    |
+| Docker service for React in `docker-compose.yml`  | ❌    |
+| README screenshots: both UIs side-by-side         | ❌    |
+
+**Key implementation notes:**
+
+- `useChat` consumes `/query/stream` via the browser's `EventSource` API or `fetch` + `ReadableStream`; tokens appended to message state on each SSE event
+- Sources arrive as a final SSE event after `[DONE]` — rendered as `SourceCard` components below the answer
+- `lib/api.ts` mirrors the Pydantic models as TypeScript interfaces — generated once from the OpenAPI schema at `/openapi.json`, then maintained manually
+- No external state library needed (React `useState` + `useReducer` sufficient for this scope)
+- Tailwind for styling — matches Denis's existing Advanced-level skill, no new CSS framework to learn
+
+### Phase 6: Code Quality — OOP vs Functional
+
+Evaluate which classes justify being classes and which should be plain functions. A class is justified when construction cost (model load, connection open) must be paid once and the instance reused across calls.
+
+| Class              | Holds shared state?                               | Verdict                           | Done |
+| ------------------ | ------------------------------------------------- | --------------------------------- | ---- |
+| `Reranker`         | Yes — `CrossEncoder` model loaded once at startup | Keep as class                     | ❌    |
+| `Embedder`         | Yes — `SentenceTransformer` + sparse model        | Keep as class                     | ❌    |
+| `VectorDB`         | Yes — Qdrant client + connection                  | Keep as class                     | ❌    |
+| `DocRegistry`      | Yes — SQLite connection                           | Keep as class                     | ❌    |
+| `IngestionService` | No own state — wraps injected collaborators       | Convert to module-level functions | ❌    |
+| `search_service`   | Already module-level functions                    | ✅ Done                            | ✅    |
+| `chain.py`         | Already module-level functions                    | ✅ Done                            | ✅    |
+
+### Phase 7: Hardening + Polish
+
+Infrastructure and presentation work — do after React frontend is solid.
+
+| Task                                | Done |
+| ----------------------------------- | ---- |
+| Python 3.12 upgrade (PEP 695 types) | ❌    |
+| Document delete endpoint            | ❌    |
+| API key auth middleware             | ❌    |
+| Sample data seeding script          | ❌    |
+| Docker optimization                 | ❌    |
+| README with screenshots (both UIs)  | ❌    |
 
 #### Python 3.12 Upgrade
 
-**Goal:** Adopt PEP 695 type syntax (`type`, `[T]` generics) across the codebase for cleaner, more expressive type annotations.
+**Goal:** Adopt PEP 695 type syntax (`type`, `[T]` generics) for cleaner type annotations.
 
-**Why PEP 695 matters for this project:**
-
-| Feature | Old way (3.11) | New way (3.12) |
-| --- | --- | --- |
-| Type alias | `Sample: TypeAlias = dict[str, object]` | `type Sample = dict[str, object]` |
-| Generic function | `def first(xs: list[T]) -> T` + `TypeVar("T")` | `def first[T](xs: list[T]) -> T` |
-| Generic class | `class Stack(Generic[T])` + `TypeVar("T")` | `class Stack[T]` |
-| Recursive alias | Impossible without `from __future__` | `type Tree[T] = T \| list[Tree[T]]` |
-
-PEP 695 aliases are **lazily evaluated** (right-hand side not resolved at import time), which eliminates forward-reference `"string"` hacks and makes recursive types possible without `from __future__ import annotations`.
+| Feature          | Old (3.11)                                     | New (3.12)                        |
+| ---------------- | ---------------------------------------------- | --------------------------------- |
+| Type alias       | `Sample: TypeAlias = dict[str, object]`        | `type Sample = dict[str, object]` |
+| Generic function | `def first(xs: list[T]) -> T` + `TypeVar("T")` | `def first[T](xs: list[T]) -> T`  |
+| Generic class    | `class Stack(Generic[T])`                      | `class Stack[T]`                  |
 
 **Migration steps:**
 
-1. **Install Python 3.12**
-
-   ```bash
-   uv python install 3.12
-   ```
-
-2. **Update `pyproject.toml`**
-
-   ```toml
-   requires-python = "==3.12.*"
-   ```
-
-   And in `[tool.mypy]`:
-
-   ```toml
-   python_version = "3.12"
-   ```
-
-3. **Re-pin the lockfile**
-
-   ```bash
-   uv sync
-   ```
-
-4. **Migrate type aliases** — search for `TypeAlias` imports and plain assignments used as aliases:
-
-   ```python
-   # before
-   from typing import TypeAlias
-   Sample: TypeAlias = dict[str, object]
-
-   # after
-   type Sample = dict[str, object]
-   ```
-
-5. **Migrate generic functions** — replace `TypeVar` boilerplate:
-
-   ```python
-   # before
-   T = TypeVar("T")
-   def first(xs: list[T]) -> T: ...
-
-   # after
-   def first[T](xs: list[T]) -> T: ...
-   ```
-
-6. **Migrate generic classes** — replace `Generic[T]` base:
-
-   ```python
-   # before
-   class Repository(Generic[T]): ...
-
-   # after
-   class Repository[T]: ...
-   ```
-
-7. **Run typecheck and tests** to confirm no regressions:
-
-   ```bash
-   mise run dev-check
-   ```
+1. `uv python install 3.12`
+2. Update `pyproject.toml`: `requires-python = "==3.12.*"`
+3. `uv sync`
+4. Replace `TypeAlias` assignments and `TypeVar` boilerplate — see patterns above
+5. `mise run dev-check`
 
 **Files most likely to change:** `eval/run_ragas.py`, `shared/doctalk_shared/models.py`, any utility with `TypeVar`.
 
@@ -480,8 +569,6 @@ POST /extract-metadata   (stateless — does not store anything)
 
 ## 11. Integration Testing Infrastructure
 
-> **Status: not started** — set up before Phase 4 evaluation work begins.
-
 ### Overview
 
 Deep integration tests that hit real services (SQLite doc registry, Qdrant) with deterministic, factory-generated data — no mocks.
@@ -502,11 +589,11 @@ Deep integration tests that hit real services (SQLite doc registry, Qdrant) with
 tests/
 ├── conftest.py          # db session fixture, factory session wiring, Qdrant test client
 ├── factories.py         # DocumentFactory, CollectionFactory, ChunkFactory
-├── test_loaders.py      # existing
-├── test_chunker.py      # existing
-├── test_api.py          # existing
-├── test_retrieval.py    # existing
-└── test_registry.py     # new — doc registry integration tests
+├── test_loaders.py
+├── test_chunker.py
+├── test_api.py
+├── test_retrieval.py
+└── test_registry.py     # doc registry integration tests
 ```
 
 ### Key Patterns
@@ -520,24 +607,25 @@ tests/
 
 ## 12. Future Extensions
 
-- **Agentic layer:** LangGraph agent for autonomous multi-step retrieval
+- **Agentic layer:** LangGraph agent for autonomous multi-step retrieval (Phase 8 candidate)
 - **Multi-tenant isolation:** Per-company API keys with collection-level access control
 - **Web scraping loader:** URL ingestion alongside file upload
-- **React frontend:** Replace Streamlit
 - **Azure deployment:** ACI/ACA for ComplianceCoder demo
+- **Multi-LLM support:** Add Anthropic Claude + Google Gemini to `build_llm()` factory — signals multi-LLM-SDK capability now appearing in DACH job postings
 
 ---
 
-## 12. Success Criteria
+## 13. Success Criteria
 
-| Metric                                   | Target                                |
-| ---------------------------------------- | ------------------------------------- |
-| Supports 4 document formats              | PDF, DOCX, MD, TXT all working        |
-| RAG answer accuracy (RAGAS faithfulness) | > 0.80                                |
-| RAG context relevancy (RAGAS)            | > 0.75                                |
-| Query response time (local, Ollama)      | < 5 seconds                           |
-| Query response time (Claude API)         | < 3 seconds                           |
-| Docker Compose single-command startup    | `docker compose up` → everything runs |
-| API documentation                        | Auto-generated Swagger at `/docs`     |
-| Test coverage                            | > 70% (loaders + API)                 |
-| GitHub README with demo GIF              | Portfolio-ready                       |
+| Metric                                   | Target                                         |
+| ---------------------------------------- | ---------------------------------------------- |
+| Supports 4 document formats              | PDF, DOCX, MD, TXT all working                 |
+| RAG answer accuracy (RAGAS faithfulness) | > 0.80                                         |
+| RAG context relevancy (RAGAS)            | > 0.75                                         |
+| Query response time (local, Ollama)      | < 5 seconds                                    |
+| Query response time (DeepSeek API)       | < 3 seconds                                    |
+| Docker Compose single-command startup    | `docker compose up` → backend + both UIs run   |
+| API documentation                        | Auto-generated Swagger at `/docs`              |
+| Test coverage                            | > 70% (loaders + API)                          |
+| Both frontends functional                | Streamlit on :8501, React on :3000, same API   |
+| GitHub README with demo GIF              | Portfolio-ready, showing both UIs side-by-side |

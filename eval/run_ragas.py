@@ -16,24 +16,42 @@ Prerequisites:
     - eval/test_dataset.json populated with question/ground_truth/topics tuples
 """
 
+import contextlib
+import io
+import logging
+import os
 import warnings
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
+logging.getLogger("transformers").setLevel(logging.ERROR)
+logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
+os.environ.setdefault("CONFIDENT_METRIC_LOGGING_VERBOSE", "0")
+os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
+
+@contextlib.contextmanager
+def _silence():
+    """Suppress stdout/stderr during noisy model loads."""
+    with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+        yield
+
 
 import argparse
 import asyncio
 import json
 from pathlib import Path
 
+from langchain_core.language_models import BaseChatModel
 from langchain_huggingface import HuggingFaceEmbeddings as LCHuggingFaceEmbeddings
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 from ragas import EvaluationDataset, aevaluate
 from ragas.dataset_schema import EvaluationResult, SingleTurnSample
 from ragas.embeddings import _LangchainEmbeddingsWrapper
 from ragas.executor import Executor
 from ragas.llms import LangchainLLMWrapper
-from ragas.metrics import AnswerRelevancy, ContextPrecision
+from ragas.metrics import AnswerRelevancy, ContextPrecision, Faithfulness
 from ragas.run_config import RunConfig
 
 from app.config import settings
@@ -75,7 +93,7 @@ _ENV_REGISTRY_PATHS = {
 }
 
 
-def _build_services(env: str) -> tuple[VectorDB, Embedder, Reranker, DocRegistry, ChatOllama]:
+def _build_services(env: str) -> tuple[VectorDB, Embedder, Reranker, DocRegistry, BaseChatModel]:
     import time
 
     def _timed(label: str, fn):
@@ -89,14 +107,19 @@ def _build_services(env: str) -> tuple[VectorDB, Embedder, Reranker, DocRegistry
     registry_path = _ENV_REGISTRY_PATHS[env]
     print(f"Initializing services ({env})...")
     vector_db = _timed("VectorDB", lambda: VectorDB(qdrant_url))
-    embedder = _timed("Embedder", lambda: Embedder(model_name=settings.embedding_model))
-    reranker = _timed("Reranker", lambda: Reranker(model_name=settings.reranker_model))
+    with _silence():
+        embedder = _timed("Embedder", lambda: Embedder(model_name=settings.embedding_model))
+        reranker = _timed("Reranker", lambda: Reranker(model_name=settings.reranker_model))
     registry = _timed("DocRegistry", lambda: DocRegistry(db_path=registry_path))
-    llm = _timed(
-        "Ollama",
-        lambda: ChatOllama(base_url=settings.default_llm_url, model=settings.default_llm_model),
+    langchain_llm = _timed(
+        "LLM",
+        lambda: ChatOpenAI(
+            base_url=settings.deepseek_base_url,
+            model=settings.deepseek_model,
+            api_key=settings.deepseek_api_key or "none",
+        ),
     )
-    return vector_db, embedder, reranker, registry, llm
+    return vector_db, embedder, reranker, registry, langchain_llm
 
 
 async def index_documents(
@@ -151,7 +174,7 @@ async def run_pipeline(
     embedder: Embedder,
     vector_db_client: VectorDB,
     reranker: Reranker,
-    langchain_llm: ChatOllama,
+    langchain_llm: BaseChatModel,
 ) -> PipelineResult:
     collection = sample.topics[0]
     question = sample.question
@@ -210,15 +233,13 @@ def build_ragas_dataset(results: list[PipelineResult]):
 # ---------------------------------------------------------------------------
 
 
-async def run_ragas_eval(dataset, llm, embeddings) -> EvaluationResult | Executor:
+async def run_eval(dataset, llm, embeddings) -> EvaluationResult | Executor:
     run_config = RunConfig(max_workers=1, timeout=300, max_retries=2)
     return await aevaluate(
         dataset=dataset,
         llm=llm,
         embeddings=embeddings,
-        # Faithfulness disabled — mistral:7b can't produce the structured JSON these prompts require.
-        # Re-enable once Claude API is wired in as the judge (Phase 4 Claude provider toggle).
-        metrics=[AnswerRelevancy(), ContextPrecision()],
+        metrics=[AnswerRelevancy(strictness=1), ContextPrecision(), Faithfulness()],
         run_config=run_config,
     )
 
@@ -289,16 +310,22 @@ async def main(dataset_path: Path, out_dir: Path, env: str, limit: int | None = 
     print("\nBuilding RAGAS dataset...")
     dataset = build_ragas_dataset(results)
 
-    print("Configuring RAGAS judge (Ollama/mistral:7b)...")
+    print("Configuring RAGAS judge (DeepSeek)...")
     judge_llm = LangchainLLMWrapper(
-        ChatOllama(base_url=settings.default_llm_url, model="mistral:7b", format="json")
+        ChatOpenAI(
+            base_url=settings.deepseek_base_url,
+            model=settings.deepseek_model,
+            api_key=settings.deepseek_api_key or "none",
+            n=1,  # DeepSeek only supports n=1; RAGAS AnswerRelevancy defaults to n=5
+        )
     )
-    embeddings = _LangchainEmbeddingsWrapper(
-        LCHuggingFaceEmbeddings(model_name=settings.embedding_model)
-    )
+    with _silence():
+        embeddings = _LangchainEmbeddingsWrapper(
+            LCHuggingFaceEmbeddings(model_name=settings.embedding_model)
+        )
 
     print(f"Running RAGAS evaluation ({len(samples)} samples × 3 metrics)...")
-    ragas_result = await run_ragas_eval(dataset, judge_llm, embeddings)
+    ragas_result = await run_eval(dataset, judge_llm, embeddings)
     assert isinstance(ragas_result, EvaluationResult)
 
     print_summary(ragas_result)

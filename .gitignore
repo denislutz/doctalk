@@ -87,6 +87,7 @@ logs/*
 # Evaluation outputs
 eval/results/
 eval/output/
+.deepeval/
 
 # =============================================================================
 # Docker

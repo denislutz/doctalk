@@ -109,9 +109,17 @@ run = "uv run python scripts/ping.py --frontend-only"
 description = "Seed sample data into collections"
 run = "uv run python scripts/seed_demo.py"
 
+[tasks.eval-ragas]
+description = "Run RAGAS evaluation (use --limit N to cap samples)"
+run = "uv run python eval/run_ragas.py $@"
+
+[tasks.eval-deepeval]
+description = "Run DeepEval evaluation (use --limit N to cap samples)"
+run = "uv run python eval/run_deepeval.py $@"
+
 [tasks.eval]
-description = "Run RAGAS evaluation"
-run = "uv run python eval/run_ragas.py"
+description = "Run all evaluations: RAGAS + DeepEval"
+depends = ["eval-ragas", "eval-deepeval"]
 
 [tasks.open-qdrant]
 description = "Open Qdrant dashboard in browser"

@@ -54,20 +54,20 @@ Both frontends consume the same FastAPI endpoints. Streamlit stays as the rapid-
 
 ## 3. Tech Stack
 
-| Layer                | Technology                                       | Why                                                             |
-| -------------------- | ------------------------------------------------ | --------------------------------------------------------------- |
-| **Language**         | Python 3.12+                                     | All libraries native, async support, PEP 695 type syntax        |
-| **API Framework**    | FastAPI + Pydantic                               | Async, typed, auto-docs, SSE streaming                          |
-| **Vector DB**        | Qdrant (local binary)                            | Collection isolation, metadata filtering, sparse vector support |
-| **Embeddings**       | `sentence-transformers/all-MiniLM-L6-v2` (local) | Free, fast, GDPR-compliant                                      |
-| **RAG Framework**    | LangChain                                        | LCEL chains, prompt templates, output parsers                   |
-| **LLM**              | Ollama (local) + DeepSeek API                    | Self-hosted default; DeepSeek as cheap remote API example       |
-| **Doc Processing**   | `python-docx`, `PyMuPDF`, `markdown`             | One loader per format, all pure Python                          |
-| **Frontend A**       | Streamlit (MVP / demo layer)                     | Fast to build, good for rapid demos and internal use            |
-| **Frontend B**       | React + Next.js + Tailwind CSS                   | Production UI, streaming chat, portfolio showcase               |
-| **Containerization** | Docker Compose                                   | Single-command startup for both frontends + backend             |
-| **Evaluation**       | RAGAS + DeepEval                                 | Pipeline quality metrics                                        |
-| **Testing**          | pytest + httpx (async) + factory-boy             | Integration tests hitting real services, no mocks               |
+| Layer                | Technology                                        | Why                                                                         |
+| -------------------- | ------------------------------------------------- | --------------------------------------------------------------------------- |
+| **Language**         | Python 3.12+                                      | All libraries native, async support, PEP 695 type syntax                    |
+| **API Framework**    | FastAPI + Pydantic                                | Async, typed, auto-docs, SSE streaming                                      |
+| **Vector DB**        | Qdrant (local binary)                             | Collection isolation, metadata filtering, sparse vector support             |
+| **Embeddings**       | `sentence-transformers/all-MiniLM-L6-v2` (local)  | Free, fast, GDPR-compliant                                                  |
+| **RAG Framework**    | LangChain                                         | LCEL chains, prompt templates, output parsers                               |
+| **LLM**              | Ollama (local) + DeepSeek API                     | Self-hosted default; DeepSeek as cheap remote API example                   |
+| **Doc Processing**   | `python-docx`, `PyMuPDF`, `markdown`              | One loader per format, all pure Python                                      |
+| **Frontend A**       | Streamlit (MVP / demo layer)                      | Fast to build, good for rapid demos and internal use                        |
+| **Frontend B**       | React + Next.js + Tailwind CSS                    | Production UI, streaming chat, portfolio showcase                           |
+| **Containerization** | Docker Compose                                    | Single-command startup for both frontends + backend                         |
+| **Evaluation**       | RAGAS + DeepEval                                  | Pipeline quality metrics — see [eval-concepts.md](eval-concepts.md)         |
+| **Testing**          | pytest + httpx (async) + factory-boy              | Integration tests hitting real services, no mocks                           |
 
 ---
 
@@ -377,9 +377,14 @@ AI-first topics: LLM provider swap, eval frameworks, observability. Highest lear
 | RAGAS evaluation                         | ✅    |
 | Structured logging (per-request trace)   | ✅    |
 | DeepSeek API provider toggle             | ✅    |
-| DeepEval integration                     | ❌    |
+| DeepEval integration                     | ✅    |
 | Benchmark script                         | ❌    |
-| SSE streaming endpoint (`/query/stream`) | ❌    |
+
+### Phase 5: React Frontend
+
+**Goal:** Production-quality chat UI that demonstrates the React/Python/AI stack combination directly. Both frontends run simultaneously — Streamlit on port 8501, React on port 3000, both pointing at the same FastAPI backend on port 8000.
+
+**Why keep both:** Streamlit shows speed-of-iteration (built in hours); React shows production engineering (typed API client, streaming, component architecture). Having both in the same repo is itself a talking point in proposals.
 
 #### SSE Streaming Endpoint
 
@@ -397,14 +402,9 @@ async def query_stream(question: str, topics: str | None = None):
 
 Streamlit can optionally consume this too; the existing POST `/query` endpoint stays unchanged.
 
-### Phase 5: React Frontend
-
-**Goal:** Production-quality chat UI that demonstrates the React/Python/AI stack combination directly. Both frontends run simultaneously — Streamlit on port 8501, React on port 3000, both pointing at the same FastAPI backend on port 8000.
-
-**Why keep both:** Streamlit shows speed-of-iteration (built in hours); React shows production engineering (typed API client, streaming, component architecture). Having both in the same repo is itself a talking point in proposals.
-
 | Task                                              | Done |
 | ------------------------------------------------- | ---- |
+| SSE streaming endpoint (`/query/stream`)          | ❌    |
 | Next.js + Tailwind scaffold in `frontend-react/`  | ❌    |
 | Typed API client `lib/api.ts` (from OpenAPI spec) | ❌    |
 | `useChat` hook — SSE stream + message state       | ❌    |

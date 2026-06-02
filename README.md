@@ -4,8 +4,8 @@ Self-hosted RAG system for querying company documents via natural language. Uplo
 
 ## Requirements
 
-- [mise](https://mise.jdx.dev) — manages Python, uv, and docker-compose versions
-- [Docker](https://docs.docker.com/get-docker/) — for Qdrant and Ollama
+- [mise](https://mise.jdx.dev) — manages Python, uv, and docker-compose versions (`brew install mise`)
+- [Docker](https://docs.docker.com/get-docker/) — for Qdrant and Ollama (`brew install --cask docker`)
 
 ## Quick Start
 
@@ -85,25 +85,51 @@ mise run show-tree        # Show dependency tree
 ## Design & Architecture
 
 - [spec/doctalk-tech-plan.md](spec/doctalk-tech-plan.md) — full technical specification, pipeline design, data model, and build status
-- [spec/langchain-integration-plan.md](spec/langchain-integration-plan.md) — LangChain LCEL chain, hybrid search, and reranking design
+- [spec/search-concepts.md](spec/search-concepts.md) — how dense search, BM25, RRF fusion, and cross-encoder reranking work
+- [spec/eval-concepts.md](spec/eval-concepts.md) — how RAGAS, DeepEval, and the benchmark measure pipeline quality
 
 ---
 
 ## Evaluation Results
 
-Evaluated with [RAGAS](https://docs.ragas.io) on a 20-question test set covering two document collections (Austrian Economics, Libertarianism). The pipeline runs hybrid dense+sparse search with RRF fusion and cross-encoder reranking, judged by Mistral 7B locally.
+Evaluated on a 20-question test set covering two document collections (Austrian Economics, Libertarianism). The pipeline runs hybrid dense+sparse search with RRF fusion and cross-encoder reranking.
+
+See [spec/eval-concepts.md](spec/eval-concepts.md) for a full explanation of what each metric measures and why the frameworks are used together.
+
+### RAGAS — statistical pipeline scoring
+
+Judged locally with Mistral 7B. Measures retrieval and answer quality without an external API.
 
 | Metric            | Score     |
 | ----------------- | --------- |
 | Context Precision | **0.971** |
 | Answer Relevancy  | **0.860** |
-| Overall           | **0.916** |
 
-**Context Precision (0.971)** — retrieved chunks are highly relevant and correctly ranked. The hybrid search + reranking pipeline surfaces the right content.
+**Context Precision (0.971)** — retrieved chunks are highly relevant and correctly ranked. Hybrid search + reranking surfaces the right content.
 
-**Answer Relevancy (0.860)** — answers are on-topic but occasionally verbose; room to improve with tighter generation prompts.
+**Answer Relevancy (0.860)** — answers are on-topic; occasional verbosity leaves room for prompt tuning.
 
-> Run `mise run eval -- --limit 20` to reproduce. See [`eval/run_ragas.py`](eval/run_ragas.py) for the full evaluation script. Results saved to `eval/results/`.
+### DeepEval — LLM-as-judge with failure reasons
+
+Judged by DeepSeek API. Adds a faithfulness check and returns a natural-language reason for each failure.
+
+| Metric            | Score     |
+| ----------------- | --------- |
+| Answer Relevancy  | **0.961** |
+| Faithfulness      | **0.986** |
+| Contextual Recall | **0.938** |
+
+**Faithfulness (0.986)** — the LLM almost never hallucinates; answers stay within the retrieved context.
+
+**Contextual Recall (0.938)** — two failures traced to ground-truth answers referencing content (exact quotes, secondary detail) not present in the indexed source documents — a dataset gap, not a retrieval bug.
+
+**Answer Relevancy (0.961)** — one failure on a multi-topic comparative question; the pipeline answered each concept separately rather than addressing the commonality.
+
+### Benchmark
+
+Latency benchmarking across providers (Ollama vs DeepSeek) is planned — see [spec/eval-concepts.md](spec/eval-concepts.md).
+
+> Run `mise run eval-ragas` or `mise run eval-deepeval` to reproduce. Use `-- --limit N` to cap sample count. Results saved to `eval/results/`.
 
 ---
 

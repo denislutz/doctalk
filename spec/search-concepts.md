@@ -208,3 +208,33 @@ With `k=1` (low), rank 0 scores `0.500` and rank 5 scores `0.143` — being #1 d
 | Sparse search | Catches exact terms, codes, jargon | Misses semantic similarity |
 | RRF merge | Combines both ranked lists fairly | — |
 | Cross-encoder | Re-scores top candidates by direct relevance | Too slow to run on all chunks |
+
+---
+
+## Full flow — end to end
+
+**User query:** "What is the leave policy?"
+
+### Step 1 — Dense search
+
+The query is embedded by `all-MiniLM-L6-v2` into a 384-float vector. Qdrant does cosine similarity against all stored dense vectors and returns the top 20 chunks by directional closeness. Chunk C ("the annual leave policy grants 20 days per year") scores high because the embedding space places it near the query meaning.
+
+### Step 2 — Sparse / BM25 search (parallel)
+
+The query is tokenized and hashed: `{hash("leave"): 1.0, hash("policy"): 1.0}`. Qdrant hits its inverted index — only chunks that share at least one term are touched. Dot product is computed per matching chunk. Returns top 20 by keyword overlap score.
+
+### Step 3 — RRF merge
+
+Two ranked lists come in — cosine scores and dot-product scores are on incompatible scales, so raw scores are thrown away. Each chunk gets `1/(60 + rank + 1)` from each list, summed. A chunk present in both lists (even mid-ranked in each) beats a chunk that dominated only one. Output: top 10 chunks by RRF score.
+
+### Step 4 — Cross-encoder reranking
+
+The cross-encoder (`ms-marco-MiniLM-L-6-v2`) reads each `(query, chunk)` pair together in a single forward pass — it sees both at once, unlike the bi-encoder which embeds them separately. Scores each of the 10 candidates for direct answer relevance. Returns top 5. Chunk B ("HR manages all employee benefits") gets cut here — it was consistent enough to survive RRF but the cross-encoder can see it doesn't answer the question.
+
+### Step 5 — LLM generation
+
+The top 5 chunks are injected as context into the prompt. The LLM is instructed to answer only from the provided context and cite sources. It never sees the other 15+ chunks that didn't make the cut.
+
+### Why this sequence and not a different order
+
+RRF must come before the cross-encoder because the cross-encoder is too slow to run on all chunks in the collection — it only works on a small candidate pool. Dense + sparse produce that pool cheaply in parallel; RRF merges them fairly; the cross-encoder then does the expensive precision work on just the survivors.

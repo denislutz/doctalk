@@ -1,3 +1,5 @@
+from collections.abc import AsyncIterator
+
 from doctalk_shared.models import ChatMessage, RetrievedChunk
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
@@ -74,3 +76,38 @@ async def generate_answer(
             }
         )
     )
+
+
+def _build_chain_inputs(
+    question: str,
+    chunks: list[RetrievedChunk],
+    history: list[ChatMessage] | None,
+) -> dict[str, object]:
+    chunk_lines = [f"Source: {c.source_name}, page: {c.page}\n{c.content}" for c in chunks]
+    chat_history = [
+        HumanMessage(content=m.content) if m.role == "user" else AIMessage(content=m.content)
+        for m in (history or [])
+    ]
+    return {
+        "formatted_chunks": "\n\n".join(chunk_lines),
+        "question": question,
+        "chat_history": chat_history,
+    }
+
+
+async def stream_answer(
+    question: str,
+    chunks: list[RetrievedChunk],
+    llm: BaseChatModel,
+    history: list[ChatMessage] | None = None,
+) -> AsyncIterator[str]:
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", SYSTEM_PROMPT),
+            MessagesPlaceholder("chat_history"),
+            ("human", "Context:\n{formatted_chunks}\n\nQuestion: {question}"),
+        ]
+    )
+    chain = prompt | llm | StrOutputParser()
+    async for token in chain.astream(_build_chain_inputs(question, chunks, history)):
+        yield token

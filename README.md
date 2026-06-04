@@ -1,5 +1,7 @@
 # DocTalk
 
+![DocTalk demo](spec/DemoVideoReadme.gif)
+
 Self-hosted RAG system for querying company documents via natural language. Upload PDFs, DOCX, Markdown, and CSV files into topic collections and ask questions across them. No data leaves your network.
 
 ## Requirements

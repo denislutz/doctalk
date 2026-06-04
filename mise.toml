@@ -1,6 +1,7 @@
 [tools]
 python = "3.11"
 uv = "latest"
+pnpm = "latest"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
@@ -147,4 +148,44 @@ run = "pgrep -f 'streamlit run frontend' | xargs kill -9 2>/dev/null && echo 'fr
 
 [tasks.kill]
 description = "Kill all services (Ollama, Qdrant, API, frontend)"
-depends = ["kill-ollama", "kill-qdrant", "kill-api", "kill-frontend"]
+depends = ["kill-ollama", "kill-qdrant", "kill-api", "kill-frontend", "kill-react"]
+
+# ── React frontend ────────────────────────────────────────────────────────────
+
+[tasks.react-install]
+description = "Install React frontend dependencies"
+dir = "frontend-react"
+run = "pnpm install"
+
+[tasks.react-dev]
+description = "Start React (Vite) dev server on port 3000"
+dir = "frontend-react"
+run = "pnpm dev"
+
+[tasks.react-build]
+description = "Build React frontend for production"
+dir = "frontend-react"
+run = "pnpm build"
+
+[tasks.react-typecheck]
+description = "Type-check React frontend (tsc --noEmit)"
+dir = "frontend-react"
+run = "pnpm typecheck"
+
+[tasks.react-lint]
+description = "Lint React frontend (ESLint)"
+dir = "frontend-react"
+run = "pnpm lint"
+
+[tasks.react-check]
+description = "Full React static analysis: typecheck + lint + build"
+dir = "frontend-react"
+run = """
+pnpm typecheck
+pnpm lint
+pnpm build
+"""
+
+[tasks.kill-react]
+description = "Kill Vite React dev server (port 3000)"
+run = "{ pgrep -f 'vite'; lsof -ti :3000; } | sort -u | xargs kill -9 2>/dev/null && echo 'react: killed' || echo 'react: not running'"

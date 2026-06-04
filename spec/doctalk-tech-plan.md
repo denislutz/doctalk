@@ -54,20 +54,20 @@ Both frontends consume the same FastAPI endpoints. Streamlit stays as the rapid-
 
 ## 3. Tech Stack
 
-| Layer                | Technology                                        | Why                                                                         |
-| -------------------- | ------------------------------------------------- | --------------------------------------------------------------------------- |
-| **Language**         | Python 3.12+                                      | All libraries native, async support, PEP 695 type syntax                    |
-| **API Framework**    | FastAPI + Pydantic                                | Async, typed, auto-docs, SSE streaming                                      |
-| **Vector DB**        | Qdrant (local binary)                             | Collection isolation, metadata filtering, sparse vector support             |
-| **Embeddings**       | `sentence-transformers/all-MiniLM-L6-v2` (local)  | Free, fast, GDPR-compliant                                                  |
-| **RAG Framework**    | LangChain                                         | LCEL chains, prompt templates, output parsers                               |
-| **LLM**              | Ollama (local) + DeepSeek API                     | Self-hosted default; DeepSeek as cheap remote API example                   |
-| **Doc Processing**   | `python-docx`, `PyMuPDF`, `markdown`              | One loader per format, all pure Python                                      |
-| **Frontend A**       | Streamlit (MVP / demo layer)                      | Fast to build, good for rapid demos and internal use                        |
-| **Frontend B**       | React + Next.js + Tailwind CSS                    | Production UI, streaming chat, portfolio showcase                           |
-| **Containerization** | Docker Compose                                    | Single-command startup for both frontends + backend                         |
-| **Evaluation**       | RAGAS + DeepEval                                  | Pipeline quality metrics — see [eval-concepts.md](eval-concepts.md)         |
-| **Testing**          | pytest + httpx (async) + factory-boy              | Integration tests hitting real services, no mocks                           |
+| Layer                | Technology                                       | Why                                                                 |
+| -------------------- | ------------------------------------------------ | ------------------------------------------------------------------- |
+| **Language**         | Python 3.12+                                     | All libraries native, async support, PEP 695 type syntax            |
+| **API Framework**    | FastAPI + Pydantic                               | Async, typed, auto-docs, SSE streaming                              |
+| **Vector DB**        | Qdrant (local binary)                            | Collection isolation, metadata filtering, sparse vector support     |
+| **Embeddings**       | `sentence-transformers/all-MiniLM-L6-v2` (local) | Free, fast, GDPR-compliant                                          |
+| **RAG Framework**    | LangChain                                        | LCEL chains, prompt templates, output parsers                       |
+| **LLM**              | Ollama (local) + DeepSeek API                    | Self-hosted default; DeepSeek as cheap remote API example           |
+| **Doc Processing**   | `python-docx`, `PyMuPDF`, `markdown`             | One loader per format, all pure Python                              |
+| **Frontend A**       | Streamlit (MVP / demo layer)                     | Fast to build, good for rapid demos and internal use                |
+| **Frontend B**       | React + Next.js + Tailwind CSS                   | Production UI, streaming chat, portfolio showcase                   |
+| **Containerization** | Docker Compose                                   | Single-command startup for both frontends + backend                 |
+| **Evaluation**       | RAGAS + DeepEval                                 | Pipeline quality metrics — see [eval-concepts.md](eval-concepts.md) |
+| **Testing**          | pytest + httpx (async) + factory-boy             | Integration tests hitting real services, no mocks                   |
 
 ---
 
@@ -371,14 +371,14 @@ doctalk/
 
 AI-first topics: LLM provider swap, eval frameworks, observability. Highest learning-value items for portfolio positioning.
 
-| Task                                     | Done |
-| ---------------------------------------- | ---- |
-| Test Q&A dataset (20+ pairs)             | ✅    |
-| RAGAS evaluation                         | ✅    |
-| Structured logging (per-request trace)   | ✅    |
-| DeepSeek API provider toggle             | ✅    |
-| DeepEval integration                     | ✅    |
-| Benchmark script                         | ❌    |
+| Task                                   | Done |
+| -------------------------------------- | ---- |
+| Test Q&A dataset (20+ pairs)           | ✅    |
+| RAGAS evaluation                       | ✅    |
+| Structured logging (per-request trace) | ✅    |
+| DeepSeek API provider toggle           | ✅    |
+| DeepEval integration                   | ✅    |
+| Benchmark script                       | ❌    |
 
 ### Phase 5: React Frontend
 
@@ -404,17 +404,17 @@ Streamlit can optionally consume this too; the existing POST `/query` endpoint s
 
 | Task                                              | Done |
 | ------------------------------------------------- | ---- |
-| SSE streaming endpoint (`/query/stream`)          | ❌    |
-| Next.js + Tailwind scaffold in `frontend-react/`  | ❌    |
-| Typed API client `lib/api.ts` (from OpenAPI spec) | ❌    |
-| `useChat` hook — SSE stream + message state       | ❌    |
-| `ChatWindow` + `MessageBubble` — token streaming  | ❌    |
-| `SourceCard` — citation (filename, page, preview) | ❌    |
-| `useCollections` hook + `CollectionList`          | ❌    |
-| `UploadDropzone` — drag-and-drop upload           | ❌    |
-| `HealthBadge` — live backend health indicator     | ❌    |
-| Docker service for React in `docker-compose.yml`  | ❌    |
-| README screenshots: both UIs side-by-side         | ❌    |
+| SSE streaming endpoint (`/query/stream`)          | ✅    |
+| Next.js + Tailwind scaffold in `frontend-react/`  | ✅    |
+| Typed API client `lib/api.ts` (from OpenAPI spec) | ✅    |
+| `useChat` hook — SSE stream + message state       | ✅    |
+| `ChatWindow` + `MessageBubble` — token streaming  | ✅    |
+| `SourceCard` — citation (filename, page, preview) | ✅    |
+| `useCollections` hook + `CollectionList`          | ✅    |
+| `UploadDropzone` — drag-and-drop upload           | ✅    |
+| `HealthBadge` — live backend health indicator     | ✅    |
+| Docker service for React in `docker-compose.yml`  | ✅    |
+| README screenshots: both UIs side-by-side         | ✅    |
 
 **Key implementation notes:**
 
@@ -545,6 +545,99 @@ tests/
 - Qdrant test collections are prefixed `test_` and deleted after the test
 - `factory-boy` `SubFactory` handles relationships (e.g. chunks belonging to a document)
 - `build()` for in-memory objects, `create()` to persist to DB
+
+---
+
+### Phase 8: Public Demo Deployment
+
+**Goal:** Deploy a live, password-protected instance of DocTalk so anyone can try it without running anything locally. Uses a free hosted LLM so there is no per-query cost. This is the portfolio closer — a link in the README that actually works.
+
+#### Target stack
+
+| Concern    | Choice                                                                          | Reason                                                                                                         |
+| ---------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Hosting    | [Render](https://render.com) free tier (web service + persistent disk)          | Free, Docker-native, no cold-start for web services on paid hobby tier; free tier spins down after 15 min idle |
+| Vector DB  | Qdrant Cloud free tier (1 GB cluster)                                           | Managed, zero-ops, free forever cluster                                                                        |
+| LLM        | [Groq API](https://console.groq.com) — `llama3-8b-8192` or `mixtral-8x7b-32768` | Free tier, fast inference, OpenAI-compatible API — works with the existing `ChatOpenAI` provider path          |
+| Embeddings | `all-MiniLM-L6-v2` — runs in the Render container                               | No change from local setup                                                                                     |
+| Auth       | Single shared password via HTTP Basic Auth middleware (FastAPI + React)         | Simple, no user DB needed, sufficient for a portfolio demo                                                     |
+
+#### Architecture
+
+```text
+Browser
+  │
+  ├── React frontend  (Render static site or web service, port 3000)
+  │       password prompt on first load → stores token in sessionStorage
+  │
+  └── FastAPI backend  (Render web service, port 8000)
+          HTTP Basic Auth middleware — rejects requests without correct password
+          connects to Qdrant Cloud (env var QDRANT_URL + QDRANT_API_KEY)
+          connects to Groq API  (env var GROQ_API_KEY, via ChatOpenAI adapter)
+          persistent disk at /data for SQLite doc registry
+```
+
+#### LLM provider change
+
+Add `groq` as a third provider option in `llm/provider.py` (or equivalent). Groq exposes an OpenAI-compatible endpoint, so `ChatOpenAI` with `base_url="https://api.groq.com/openai/v1"` works without a new SDK.
+
+```python
+# provider selection via LLM_PROVIDER env var: "ollama" | "deepseek" | "groq"
+case "groq":
+    return ChatOpenAI(
+        model=settings.groq_model,       # e.g. "llama3-8b-8192"
+        api_key=settings.groq_api_key,
+        base_url="https://api.groq.com/openai/v1",
+    )
+```
+
+#### Auth middleware
+
+Single-password HTTP Basic Auth on the FastAPI side. The React frontend prompts for the password on first load (a simple modal or browser native prompt) and includes it as a `Authorization: Basic …` header on all requests.
+
+```python
+# app/middleware/auth.py
+from fastapi import Request, HTTPException
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+import secrets
+
+security = HTTPBasic()
+
+async def basic_auth_middleware(request: Request, call_next):
+    # health endpoint exempt — needed for Render health checks
+    if request.url.path == "/health":
+        return await call_next(request)
+    credentials: HTTPBasicCredentials = await security(request)
+    ok = secrets.compare_digest(credentials.password, settings.demo_password)
+    if not ok:
+        raise HTTPException(status_code=401, headers={"WWW-Authenticate": "Basic"})
+    return await call_next(request)
+```
+
+#### New environment variables
+
+| Variable         | Description                         |
+| ---------------- | ----------------------------------- |
+| `LLM_PROVIDER`   | `groq` for deployed instance        |
+| `GROQ_API_KEY`   | Groq console API key                |
+| `GROQ_MODEL`     | `llama3-8b-8192` (default)          |
+| `QDRANT_URL`     | Qdrant Cloud cluster URL            |
+| `QDRANT_API_KEY` | Qdrant Cloud API key                |
+| `DEMO_PASSWORD`  | Shared password for HTTP Basic Auth |
+
+#### Deployment task list
+
+| Task                                                                                 | Done |
+| ------------------------------------------------------------------------------------ | ---- |
+| Add Groq provider to `llm/provider.py`                                               | ❌    |
+| Add `GROQ_API_KEY`, `GROQ_MODEL`, `DEMO_PASSWORD` to `config.py` + `.env.example`    | ❌    |
+| HTTP Basic Auth middleware (password-protect all routes except `/health`)            | ❌    |
+| React frontend: password prompt modal on 401, stores credentials in `sessionStorage` | ❌    |
+| Qdrant Cloud free cluster provisioned, env vars set                                  | ❌    |
+| Render web service configured (Docker, env vars, persistent disk for SQLite)         | ❌    |
+| Render static site or second web service for React frontend                          | ❌    |
+| Seed demo collections on deployed instance (sample documents)                        | ❌    |
+| README: add live demo link + password hint                                           | ❌    |
 
 ---
 

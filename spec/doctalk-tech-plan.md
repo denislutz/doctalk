@@ -550,17 +550,17 @@ tests/
 
 ### Phase 8: Public Demo Deployment
 
-**Goal:** Deploy a live, password-protected instance of DocTalk so anyone can try it without running anything locally. Uses a free hosted LLM so there is no per-query cost. This is the portfolio closer — a link in the README that actually works.
+**Goal:** Deploy a live, password-protected instance of DocTalk for demos — shared via a short-lived password on a resume link, not open to the public.
 
 #### Target stack
 
-| Concern    | Choice                                                                          | Reason                                                                                                         |
-| ---------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Hosting    | [Render](https://render.com) free tier (web service + persistent disk)          | Free, Docker-native, no cold-start for web services on paid hobby tier; free tier spins down after 15 min idle |
-| Vector DB  | Qdrant Cloud free tier (1 GB cluster)                                           | Managed, zero-ops, free forever cluster                                                                        |
-| LLM        | [Groq API](https://console.groq.com) — `llama3-8b-8192` or `mixtral-8x7b-32768` | Free tier, fast inference, OpenAI-compatible API — works with the existing `ChatOpenAI` provider path          |
-| Embeddings | `all-MiniLM-L6-v2` — runs in the Render container                               | No change from local setup                                                                                     |
-| Auth       | Single shared password via HTTP Basic Auth middleware (FastAPI + React)         | Simple, no user DB needed, sufficient for a portfolio demo                                                     |
+| Concern    | Choice                                                                  | Reason                                                              |
+| ---------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Hosting    | [Render](https://render.com) free tier (web service + persistent disk)  | Free, Docker-native; free tier spins down after 15 min idle         |
+| Vector DB  | Qdrant Cloud free tier (1 GB cluster)                                   | Managed, zero-ops, free forever cluster                             |
+| LLM        | DeepSeek API (already integrated)                                       | Already wired up; negligible cost (~$0.0003/query) for demo traffic |
+| Embeddings | `all-MiniLM-L6-v2` — runs in the Render container                       | No change from local setup                                          |
+| Auth       | Single shared password via HTTP Basic Auth middleware (FastAPI + React) | Simple, no user DB needed; rotate password after each demo session  |
 
 #### Architecture
 
@@ -573,22 +573,8 @@ Browser
   └── FastAPI backend  (Render web service, port 8000)
           HTTP Basic Auth middleware — rejects requests without correct password
           connects to Qdrant Cloud (env var QDRANT_URL + QDRANT_API_KEY)
-          connects to Groq API  (env var GROQ_API_KEY, via ChatOpenAI adapter)
+          connects to DeepSeek API  (env var DEEPSEEK_API_KEY, already integrated)
           persistent disk at /data for SQLite doc registry
-```
-
-#### LLM provider change
-
-Add `groq` as a third provider option in `llm/provider.py` (or equivalent). Groq exposes an OpenAI-compatible endpoint, so `ChatOpenAI` with `base_url="https://api.groq.com/openai/v1"` works without a new SDK.
-
-```python
-# provider selection via LLM_PROVIDER env var: "ollama" | "deepseek" | "groq"
-case "groq":
-    return ChatOpenAI(
-        model=settings.groq_model,       # e.g. "llama3-8b-8192"
-        api_key=settings.groq_api_key,
-        base_url="https://api.groq.com/openai/v1",
-    )
 ```
 
 #### Auth middleware
@@ -616,21 +602,20 @@ async def basic_auth_middleware(request: Request, call_next):
 
 #### New environment variables
 
-| Variable         | Description                         |
-| ---------------- | ----------------------------------- |
-| `LLM_PROVIDER`   | `groq` for deployed instance        |
-| `GROQ_API_KEY`   | Groq console API key                |
-| `GROQ_MODEL`     | `llama3-8b-8192` (default)          |
-| `QDRANT_URL`     | Qdrant Cloud cluster URL            |
-| `QDRANT_API_KEY` | Qdrant Cloud API key                |
-| `DEMO_PASSWORD`  | Shared password for HTTP Basic Auth |
+| Variable         | Description                                              |
+| ---------------- | -------------------------------------------------------- |
+| `LLM_PROVIDER`   | `deepseek` for deployed instance                         |
+| `QDRANT_URL`     | Qdrant Cloud cluster URL                                 |
+| `QDRANT_API_KEY` | Qdrant Cloud API key                                     |
+| `DEMO_PASSWORD`  | Shared password for HTTP Basic Auth (rotate after demos) |
+
+(`DEEPSEEK_API_KEY` already exists in config — no new vars needed for the LLM.)
 
 #### Deployment task list
 
 | Task                                                                                 | Done |
 | ------------------------------------------------------------------------------------ | ---- |
-| Add Groq provider to `llm/provider.py`                                               | ❌    |
-| Add `GROQ_API_KEY`, `GROQ_MODEL`, `DEMO_PASSWORD` to `config.py` + `.env.example`    | ❌    |
+| Add `DEMO_PASSWORD` to `config.py` + `.env.example`                                  | ❌    |
 | HTTP Basic Auth middleware (password-protect all routes except `/health`)            | ❌    |
 | React frontend: password prompt modal on 401, stores credentials in `sessionStorage` | ❌    |
 | Qdrant Cloud free cluster provisioned, env vars set                                  | ❌    |
